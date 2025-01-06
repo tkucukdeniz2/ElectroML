@@ -12,7 +12,14 @@ from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
 import xgboost as xgb
 import lightgbm as lgb
-from catboost import CatBoostRegressor
+
+# Try to import CatBoost, but make it optional
+try:
+    from catboost import CatBoostRegressor
+    CATBOOST_AVAILABLE = True
+except ImportError:
+    CATBOOST_AVAILABLE = False
+    st.sidebar.warning("CatBoost is not available on this system. The CatBoost model will be disabled.")
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
@@ -189,9 +196,14 @@ elif page == "Model Training":
         y = data['Concentration']
         
         # Model selection
+        # Available models list
+        available_models = ['Linear Regression', 'SVM', 'Random Forest', 'XGBoost', 'LightGBM', 'ANN']
+        if CATBOOST_AVAILABLE:
+            available_models.append('CatBoost')
+            
         selected_models = st.multiselect(
             "Select models to train",
-            ['Linear Regression', 'SVM', 'Random Forest', 'XGBoost', 'LightGBM', 'CatBoost', 'ANN'],
+            available_models,
             default=['Linear Regression', 'Random Forest']
         )
         
