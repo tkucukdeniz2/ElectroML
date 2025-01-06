@@ -12,19 +12,12 @@ from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
 import xgboost as xgb
 import lightgbm as lgb
-
-# Try to import CatBoost, but make it optional
-try:
-    from catboost import CatBoostRegressor
-    CATBOOST_AVAILABLE = True
-except ImportError:
-    CATBOOST_AVAILABLE = False
-    st.sidebar.warning("CatBoost is not available on this system. The CatBoost model will be disabled.")
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 import seaborn as sns
+import io
 
 # Set page configuration
 st.set_page_config(page_title="ML Model Training Pipeline", layout="wide")
@@ -100,11 +93,6 @@ def train_xgboost(X_train, y_train):
 
 def train_lightgbm(X_train, y_train):
     model = lgb.LGBMRegressor(learning_rate=0.1, num_leaves=31, random_state=42)
-    model.fit(X_train, y_train.ravel())
-    return model
-
-def train_catboost(X_train, y_train):
-    model = CatBoostRegressor(iterations=100, depth=6, learning_rate=0.1, verbose=0)
     model.fit(X_train, y_train.ravel())
     return model
 
@@ -194,16 +182,11 @@ elif page == "Model Training":
         data = pd.read_csv(uploaded_file)
         X = data.drop(columns=['Concentration'])
         y = data['Concentration']
-        
+
         # Model selection
-        # Available models list
-        available_models = ['Linear Regression', 'SVM', 'Random Forest', 'XGBoost', 'LightGBM', 'ANN']
-        if CATBOOST_AVAILABLE:
-            available_models.append('CatBoost')
-            
         selected_models = st.multiselect(
             "Select models to train",
-            available_models,
+            ['Linear Regression', 'SVM', 'Random Forest', 'XGBoost', 'LightGBM', 'ANN'],
             default=['Linear Regression', 'Random Forest']
         )
         
@@ -214,7 +197,6 @@ elif page == "Model Training":
                 'Random Forest': train_random_forest,
                 'XGBoost': train_xgboost,
                 'LightGBM': train_lightgbm,
-                'CatBoost': train_catboost,
                 'ANN': train_ann
             }
             
