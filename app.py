@@ -70,7 +70,7 @@ st.markdown("""
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
     "Choose Analysis Stage",
-    ["📊 Data Preprocessing", "🧠 Model Training", "📈 Results Visualization", "🔮 Forecasting"]
+    ["📊 Data Preprocessing", "🧠 Model Training", "📈 Results Visualization", "🔮 Prediction"]
 )
 
 def normalize_data(X_train, X_test, y_train, y_test):
