@@ -389,6 +389,7 @@ elif page == "🧠 Model Training":
                         rmse = np.sqrt(mse)
                         r2 = r2_score(actual_values, predicted_values)
                         
+                        # In the Model Training section, modify the results.append() part:
                         results.append({
                             'Model': model_name,
                             'MSE': mse,
@@ -396,7 +397,9 @@ elif page == "🧠 Model Training":
                             'RMSE': rmse,
                             'R2': r2,
                             'Actual': actual_values,
-                            'Predicted': predicted_values
+                            'Predicted': predicted_values,
+                            'trained_model': model,  # Add this line to store the model
+                            'scaler': scaler_y      # Add this line to store the scaler
                         })
                         
                         status_texts[model_name].success(f"{model_name} Complete!")
@@ -610,27 +613,39 @@ elif page == "🔮 Forecasting":
                     available_models,
                     help="Choose the model to use for concentration prediction"
                 )
-                
+
                 if st.button("🔮 Predict Concentration"):
                     with st.spinner('Making predictions...'):
-                        # Normalize features
-                        X = features_df
-                        scaler_X = MinMaxScaler()
-                        X_scaled = scaler_X.fit_transform(X)
-                        
-                        # Get the selected model from training results
-                        model_result = next(r for r in st.session_state['training_results'] 
-                                         if r['Model'] == selected_model)
-                        
-                        # Make prediction based on model type
-                        if selected_model == 'XGBoost':
-                            dtest = xgb.DMatrix(X_scaled)
-                            predictions = model_result['model'].predict(dtest)
-                        elif selected_model == 'ANN':
-                            predictions = model_result['model'].predict(X_scaled)
-                        else:
-                            predictions = model_result['model'].predict(X_scaled)
-                        
+                        try:
+                            # Normalize features
+                            X = features_df
+                            scaler_X = MinMaxScaler()
+                            X_scaled = scaler_X.fit_transform(X)
+                            
+                            # Get the selected model and its details
+                            model_data = next(r for r in st.session_state['training_results'] 
+                                            if r['Model'] == selected_model)
+                            
+                            # Make prediction based on model type
+                            if selected_model == 'XGBoost':
+                                dtest = xgb.DMatrix(X_scaled)
+                                predictions_scaled = model_data['trained_model'].predict(dtest)
+                            elif selected_model == 'ANN':
+                                predictions_scaled = model_data['trained_model'].predict(X_scaled)
+                            else:
+                                predictions_scaled = model_data['trained_model'].predict(X_scaled)
+                            
+                            # Inverse transform predictions
+                            predictions = model_data['scaler'].inverse_transform(
+                                predictions_scaled.reshape(-1, 1)
+                            ).flatten()
+                            
+                            # Rest of the visualization code remains the same...
+            
+                        except Exception as e:
+                            st.error(f"Error making predictions: {str(e)}")
+                            st.info("Please make sure you have trained the models first and the input data format is correct.")
+                            
                         # Display results
                         st.subheader("Prediction Results")
                         
