@@ -61,7 +61,7 @@ st.markdown("""
 st.title("🔬 DPV Analysis Platform")
 st.markdown("""
     Welcome to the Differential Pulse Voltammetry (DPV) Analysis Platform. This tool helps you analyze 
-    voltammetric sensor data for dopamine detection using advanced machine learning techniques.
+    voltammetric sensor data using advanced machine learning techniques.
     
     *Developed based on research in nitro-substituted PANI nanocomposite sensors.*
 """)
@@ -204,8 +204,12 @@ if page == "📊 Data Preprocessing":
     st.header("Data Preprocessing")
     
     st.info("""
-        This section helps you prepare your voltammetric data for analysis. Upload your sensor data file 
-        to extract relevant features and analyze their importance in dopamine detection.
+To facilitate hands-on testing of ElectroML, we provide a sample dataset (available at https://github.com/tkucukdeniz2/ElectroML/blob/9add814fab2edbb9b22b45d360df56b977732a4c/sensor_data.xlsx) that demonstrates the required data format. The Excel file contains voltammetric measurements organized in a matrix structure where:
+
+The first column 'Con' represents different analyte concentrations (1.25, 2.5, and 5.0 μM in the example)
+Subsequent columns contain the measured current responses at different voltage points, ranging from -1.0V to +1.0V in 0.005V increments
+Each row represents a complete voltammetric scan for a specific concentration
+The dataset includes multiple measurements to demonstrate the framework's ability to handle real experimental data variability
     """)
     
     uploaded_file = st.file_uploader(
