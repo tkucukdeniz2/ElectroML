@@ -427,7 +427,153 @@ elif page == "🧠 Model Training":
                 )
                 
                 st.success("🎉 Training completed! Go to Results Visualization or Forecasting for detailed analysis.")
-
+# Results Visualization Page
+elif page == "📈 Results Visualization":
+    st.header("Results Visualization")
+    
+    if 'training_results' not in st.session_state:
+        st.warning("⚠️ No training results available. Please train models first.")
+    else:
+        results = st.session_state['training_results']
+        
+        # Model Performance Overview
+        st.subheader("Model Performance Overview")
+        metrics_df = pd.DataFrame([
+            {
+                'Model': r['Model'],
+                'MSE': r['MSE'],
+                'MAE': r['MAE'],
+                'RMSE': r['RMSE'],
+                'R²': r['R2']
+            }
+            for r in results
+        ])
+        
+        # Interactive metric comparison
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            comparison_metric = st.selectbox(
+                "Select Performance Metric",
+                ["R²", "RMSE", "MSE", "MAE"],
+                help="Choose the metric to compare across models"
+            )
+        
+        with col2:
+            fig = px.bar(
+                metrics_df,
+                x='Model',
+                y=comparison_metric,
+                title=f'Model Comparison by {comparison_metric}',
+                color=comparison_metric,
+                color_continuous_scale='viridis'
+            )
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Detailed Model Analysis
+        st.subheader("Detailed Model Analysis")
+        
+        col1, col2 = st.columns([1, 3])
+        
+        with col1:
+            selected_model = st.selectbox(
+                "Select Model for Analysis",
+                [r['Model'] for r in results]
+            )
+            
+            viz_type = st.selectbox(
+                "Select Visualization",
+                ["Actual vs Predicted", "Residual Plot", "Error Distribution"]
+            )
+        
+        with col2:
+            model_data = next(r for r in results if r['Model'] == selected_model)
+            
+            if viz_type == "Actual vs Predicted":
+                fig = px.scatter(
+                    x=model_data['Actual'],
+                    y=model_data['Predicted'],
+                    labels={'x': 'Actual Values', 'y': 'Predicted Values'},
+                    title=f'{selected_model} - Actual vs Predicted'
+                )
+                
+                # Add ideal line
+                min_val = min(min(model_data['Actual']), min(model_data['Predicted']))
+                max_val = max(max(model_data['Actual']), max(model_data['Predicted']))
+                fig.add_trace(
+                    go.Scatter(
+                        x=[min_val, max_val],
+                        y=[min_val, max_val],
+                        mode='lines',
+                        name='Ideal',
+                        line=dict(dash='dash', color='red')
+                    )
+                )
+                
+            elif viz_type == "Residual Plot":
+                residuals = np.array(model_data['Predicted']) - np.array(model_data['Actual'])
+                fig = px.scatter(
+                    x=model_data['Predicted'],
+                    y=residuals,
+                    labels={'x': 'Predicted Values', 'y': 'Residuals'},
+                    title=f'{selected_model} - Residual Plot'
+                )
+                fig.add_hline(y=0, line_dash="dash", line_color="red")
+                
+            else:  # Error Distribution
+                residuals = np.array(model_data['Predicted']) - np.array(model_data['Actual'])
+                fig = px.histogram(
+                    x=residuals,
+                    nbins=20,
+                    title=f'{selected_model} - Error Distribution',
+                    labels={'x': 'Prediction Error', 'y': 'Count'}
+                )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Export Results
+        st.subheader("Export Results")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Download individual model results
+            results_df = pd.DataFrame({
+                'Actual': model_data['Actual'],
+                'Predicted': model_data['Predicted']
+            })
+            
+            st.download_button(
+                label="📥 Download Selected Model Results",
+                data=results_df.to_csv(index=False).encode('utf-8'),
+                file_name=f"{selected_model.lower().replace(' ', '_')}_results.csv",
+                mime="text/csv"
+            )
+        
+        with col2:
+            # Export all results
+            if st.button("📊 Export Complete Analysis"):
+                buffer = io.BytesIO()
+                
+                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                    metrics_df.to_excel(writer, sheet_name='Metrics_Summary', index=False)
+                    
+                    for result in results:
+                        model_name = result['Model']
+                        pd.DataFrame({
+                            'Actual': result['Actual'],
+                            'Predicted': result['Predicted']
+                        }).to_excel(writer, sheet_name=f'{model_name[:31]}_Results', index=False)
+                
+                buffer.seek(0)
+                st.download_button(
+                    label="📥 Download Complete Analysis",
+                    data=buffer,
+                    file_name="dpv_analysis_results.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                
 # Forecasting Page
 elif page == "🔮 Forecasting":
     st.header("Concentration Forecasting")
