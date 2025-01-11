@@ -204,7 +204,7 @@ if page == "📊 Data Preprocessing":
     st.header("Data Preprocessing")
     
     st.info("""
-    To facilitate hands-on testing of ElectroML, we provide a [sample dataset](https://github.com/tkucukdeniz2/ElectroML/sensor_data.xlsx) that demonstrates the required data format. The Excel file contains voltammetric measurements organized in a matrix structure where:
+    To facilitate hands-on testing of ElectroML, we provide a [sample dataset](https://github.com/tkucukdeniz2/ElectroML/blob/9add814fab2edbb9b22b45d360df56b977732a4c/sensor_data.xlsx) that demonstrates the required data format. The Excel file contains voltammetric measurements organized in a matrix structure where:
     
     - The first column 'Con' represents different analyte concentrations (1.25, 2.5, and 5.0 μM in the example)
     - Subsequent columns contain the measured current responses at different voltage points, ranging from -1.0V to +1.0V in 0.005V increments
