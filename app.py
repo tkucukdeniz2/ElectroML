@@ -582,7 +582,7 @@ elif page == "🔮 Forecasting":
     Upload new DPV sensor data to predict analyte concentrations using trained models. 
     The input data should follow the same format as training data:
     - Current responses for each voltage point
-    - No concentration column needed for prediction
+    - No concentration value needed for prediction (Use zero as value)
     """)
     
     if 'training_results' not in st.session_state:
