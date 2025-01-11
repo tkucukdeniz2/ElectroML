@@ -426,7 +426,7 @@ elif page == "🧠 Model Training":
                     use_container_width=True
                 )
                 
-                st.success("🎉 Training completed! Go to Results Visualization or Forecasting for detailed analysis.")
+                st.success("🎉 Training completed! Go to Results Visualization or Prediction for detailed analysis.")
 # Results Visualization Page
 elif page == "📈 Results Visualization":
     st.header("Results Visualization")
@@ -574,9 +574,9 @@ elif page == "📈 Results Visualization":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-# Forecasting Page
-elif page == "🔮 Forecasting":
-    st.header("Concentration Forecasting")
+# Prediction Page
+elif page == "🔮 Prediction":
+    st.header("Concentration Prediction")
     
     st.info("""
     Upload new DPV sensor data to predict analyte concentrations using trained models. 
