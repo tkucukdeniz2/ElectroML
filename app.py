@@ -70,7 +70,7 @@ st.markdown("""
 st.sidebar.title("Navigation")
 page = st.sidebar.radio(
     "Choose Analysis Stage",
-    ["📊 Data Preprocessing", "🧠 Model Training", "📈 Results Visualization"]
+    ["📊 Data Preprocessing", "🧠 Model Training", "📈 Results Visualization", "🔮 Forecasting"]
 )
 
 def normalize_data(X_train, X_test, y_train, y_test):
@@ -571,3 +571,127 @@ elif page == "📈 Results Visualization":
                     file_name="dpv_analysis_results.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+# Forecasting Page
+elif page == "🔮 Forecasting":
+    st.header("Concentration Forecasting")
+    
+    st.info("""
+    Upload new DPV sensor data to predict analyte concentrations using trained models. 
+    The input data should follow the same format as training data:
+    - Voltage points from -1.0V to +1.0V in 0.005V increments
+    - Current responses for each voltage point
+    
+    Download the [sample format](https://github.com/tkucukdeniz2/ElectroML/sensor_data.xlsx) for reference.
+    """)
+    
+    if 'training_results' not in st.session_state:
+        st.warning("⚠️ No trained models available. Please train models first.")
+    else:
+        # File upload for new data
+        uploaded_file = st.file_uploader(
+            "Upload new DPV measurements (Excel file)",
+            type=['xlsx'],
+            help="Upload an Excel file containing new voltammetric measurements"
+        )
+        
+        if uploaded_file is not None:
+            with st.spinner('Processing new data...'):
+                # Load and process new data
+                new_data = pd.read_excel(uploaded_file)
+                voltages = np.array(new_data.columns[1:]).astype(float)
+                
+                # Extract features from new data
+                features_df = extract_features(new_data, voltages)
+                
+                # Model selection
+                available_models = [r['Model'] for r in st.session_state['training_results']]
+                selected_model = st.selectbox(
+                    "Select Model for Prediction",
+                    available_models,
+                    help="Choose the model to use for concentration prediction"
+                )
+                
+                if st.button("🔮 Predict Concentration"):
+                    with st.spinner('Making predictions...'):
+                        # Normalize features
+                        X = features_df
+                        scaler_X = MinMaxScaler()
+                        X_scaled = scaler_X.fit_transform(X)
+                        
+                        # Get the selected model from training results
+                        model_result = next(r for r in st.session_state['training_results'] 
+                                         if r['Model'] == selected_model)
+                        
+                        # Make prediction based on model type
+                        if selected_model == 'XGBoost':
+                            dtest = xgb.DMatrix(X_scaled)
+                            predictions = model_result['model'].predict(dtest)
+                        elif selected_model == 'ANN':
+                            predictions = model_result['model'].predict(X_scaled)
+                        else:
+                            predictions = model_result['model'].predict(X_scaled)
+                        
+                        # Display results
+                        st.subheader("Prediction Results")
+                        
+                        # Create results dataframe
+                        results_df = pd.DataFrame({
+                            'Sample': range(1, len(predictions) + 1),
+                            'Predicted Concentration (μM)': predictions
+                        })
+                        
+                        # Display results table
+                        st.dataframe(results_df.style.format({
+                            'Predicted Concentration (μM)': '{:.3f}'
+                        }))
+                        
+                        # Visualization
+                        fig = px.scatter(
+                            results_df,
+                            x='Sample',
+                            y='Predicted Concentration (μM)',
+                            title='Predicted Concentrations by Sample',
+                            labels={'Sample': 'Sample Number', 
+                                   'Predicted Concentration (μM)': 'Predicted Concentration (μM)'}
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Download predictions
+                        st.download_button(
+                            label="📥 Download Predictions",
+                            data=results_df.to_csv(index=False).encode('utf-8'),
+                            file_name="concentration_predictions.csv",
+                            mime="text/csv",
+                            help="Download the predicted concentrations as a CSV file"
+                        )
+                        
+                        # Confidence metrics
+                        st.subheader("Model Performance Metrics")
+                        col1, col2, col3, col4 = st.columns(4)
+                        
+                        with col1:
+                            st.metric(
+                                "R² Score",
+                                f"{model_result['R2']:.3f}"
+                            )
+                        with col2:
+                            st.metric(
+                                "RMSE",
+                                f"{model_result['RMSE']:.3f}"
+                            )
+                        with col3:
+                            st.metric(
+                                "MAE",
+                                f"{model_result['MAE']:.3f}"
+                            )
+                        with col4:
+                            st.metric(
+                                "MSE",
+                                f"{model_result['MSE']:.3f}"
+                            )
+                        
+                        st.info("""
+                        Note: These metrics are based on the model's performance during training. 
+                        Actual prediction accuracy may vary depending on the similarity between 
+                        training data and new measurements.
+                        """)
