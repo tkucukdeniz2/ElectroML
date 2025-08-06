@@ -1,705 +1,590 @@
-import streamlit as st
+#!/usr/bin/env python3
+"""
+ElectroML - Web Application for Electrochemical Data Analysis
+Main Flask application
+"""
+
 import os
+import sys
+from pathlib import Path
+import json
+import uuid
+from datetime import datetime
 import pandas as pd
 import numpy as np
-from scipy.signal import find_peaks
-from scipy.stats import skew, kurtosis
-from sklearn.model_selection import LeaveOneOut
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVR
-from sklearn.ensemble import RandomForestRegressor
-import xgboost as xgb
-import lightgbm as lgb
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
-import matplotlib.pyplot as plt
-import seaborn as sns
+from flask import Flask, render_template, request, jsonify, send_file, session
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
+import plotly.graph_objs as go
+import plotly.utils
+import logging
 import io
-import plotly.express as px
-import plotly.graph_objects as go
+import base64
+import math
 
-# Set page configuration and theme
-st.set_page_config(
-    page_title="DPV Analysis Platform",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent))
 
-# Custom CSS for modern styling
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f8f9fa;
-    }
-    .stButton>button {
-        width: 100%;
-        border-radius: 5px;
-        height: 3em;
-        background-color: #0066cc;
-        color: white;
-    }
-    .stProgress > div > div > div {
-        background-color: #0066cc;
-    }
-    h1, h2, h3 {
-        color: #2c3e50;
-    }
-    .stAlert {
-        background-color: #e3f2fd;
-        color: #1565c0;
-        border: none;
-        border-radius: 5px;
-    }
-    </style>
-""", unsafe_allow_html=True)
+from core.feature_extraction import FeatureExtractor
+from core.model_training import ModelTrainer, TrainingConfig
+from models.model_factory import ModelFactory
 
-# Main title with description
-st.title("🔬 DPV Analysis Platform")
-st.markdown("""
-    Welcome to the Differential Pulse Voltammetry (DPV) Analysis Platform. This tool helps you analyze 
-    voltammetric sensor data using advanced machine learning techniques.
-    
-    *Developed based on research in nitro-substituted PANI nanocomposite sensors.*
-""")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Sidebar navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio(
-    "Choose Analysis Stage",
-    ["📊 Data Preprocessing", "🧠 Model Training", "📈 Results Visualization", "🔮 Prediction"]
-)
+# Initialize Flask app
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'electroml-secret-key-change-in-production'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['UPLOAD_FOLDER'] = Path(__file__).parent / 'uploads'
+app.config['UPLOAD_FOLDER'].mkdir(exist_ok=True)
 
-def normalize_data(X_train, X_test, y_train, y_test):
-    """Normalize training and test data"""
-    scaler_X = MinMaxScaler()
-    scaler_y = MinMaxScaler()
-    X_train_scaled = scaler_X.fit_transform(X_train)
-    X_test_scaled = scaler_X.transform(X_test)
-    y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1))
-    y_test_scaled = scaler_y.transform(y_test.values.reshape(-1, 1))
-    return X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled, scaler_X, scaler_y
+CORS(app)
 
-def extract_features(data, voltages):
-    """Extract features from voltammetric data"""
-    features_df = pd.DataFrame()
-    current_data = data.iloc[:, 1:]
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
 
-    with st.expander("📌 Feature Extraction Process"):
-        st.markdown("""
-            The following features are being extracted from your voltammetric data:
-            - **Peak Analysis**: Maximum/minimum currents and number of peaks
-            - **Statistical Measures**: Mean, median, standard deviation
-            - **Signal Characteristics**: Slope, area under curve, symmetry
-            - **Advanced Statistics**: Skewness, kurtosis
-        """)
+# Global storage for session data (in production, use Redis or database)
+session_data = {}
+
+
+def allowed_file(filename):
+    """Check if file extension is allowed."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def generate_session_id():
+    """Generate unique session ID."""
+    return str(uuid.uuid4())
+
+
+def clean_nan_inf(obj):
+    """Replace NaN and Inf values with None for JSON serialization."""
+    if isinstance(obj, dict):
+        return {k: clean_nan_inf(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_nan_inf(v) for v in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, np.floating):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return float(obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.ndarray):
+        return clean_nan_inf(obj.tolist())
+    return obj
+
+
+@app.route('/')
+def index():
+    """Render main application page."""
+    return render_template('index.html')
+
+
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    """Handle file upload and initial data processing."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
         
-        progress_bar = st.progress(0)
-        progress_text = st.empty()
-
-    # Basic statistical features
-    progress_text.text("Calculating basic statistical features...")
-    features_df['Imax'] = current_data.max(axis=1)
-    features_df['Imin'] = current_data.min(axis=1)
-    features_df['Imean'] = current_data.mean(axis=1)
-    features_df['Imedian'] = current_data.median(axis=1)
-    features_df['Istd'] = current_data.std(axis=1)
-    progress_bar.progress(0.25)
-
-    # Slope and peaks
-    progress_text.text("Analyzing signal characteristics...")
-    slopes = np.gradient(current_data.values, voltages, axis=1)
-    features_df['Slope'] = slopes.mean(axis=1)
-    features_df['Number_of_Peaks'] = current_data.apply(
-        lambda row: len(find_peaks(row)[0]), axis=1
-    )
-    progress_bar.progress(0.50)
-
-    # Additional features
-    progress_text.text("Computing advanced features...")
-    features_df['Positive_Area'] = current_data.apply(
-        lambda row: np.trapz(row, voltages), axis=1
-    )
-    features_df['Symmetry'] = features_df['Imax'] - features_df['Imin']
-    features_df['Skewness'] = current_data.apply(lambda row: skew(row), axis=1)
-    features_df['Kurtosis'] = current_data.apply(lambda row: kurtosis(row), axis=1)
-    progress_bar.progress(0.75)
-
-    # Rate features
-    progress_text.text("Finalizing feature extraction...")
-    features_df['Initial_Current'] = current_data.iloc[:, 0]
-    features_df['Final_Current'] = current_data.iloc[:, -1]
-    features_df['Rising_Rate'] = current_data.diff(axis=1).max(axis=1)
-    features_df['Falling_Rate'] = current_data.diff(axis=1).min(axis=1)
-    progress_bar.progress(1.0)
-    progress_text.text("Feature extraction completed!")
-
-    return features_df
-
-# Model training functions
-def train_linear_regression(X_train, y_train):
-    """Train Linear Regression model"""
-    model = LinearRegression()
-    model.fit(X_train, y_train.ravel())
-    return model
-
-def train_svm(X_train, y_train):
-    """Train SVM model"""
-    model = SVR(C=1.0, gamma=0.1)
-    model.fit(X_train, y_train.ravel())
-    return model
-
-def train_random_forest(X_train, y_train):
-    """Train Random Forest model"""
-    model = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)
-    model.fit(X_train, y_train.ravel())
-    return model
-
-def train_xgboost(X_train, y_train):
-    """Train XGBoost model"""
-    dtrain = xgb.DMatrix(X_train, label=y_train)
-    params = {'objective': 'reg:squarederror', 'max_depth': 6, 'eta': 0.1}
-    model = xgb.train(params, dtrain, num_boost_round=100)
-    return model
-
-def train_lightgbm(X_train, y_train):
-    """Train LightGBM model"""
-    model = lgb.LGBMRegressor(learning_rate=0.1, num_leaves=31, random_state=42)
-    model.fit(X_train, y_train.ravel())
-    return model
-
-def train_ann(X_train, y_train):
-    """Train ANN model"""
-    model = Sequential([
-        Dense(64, activation='relu', input_dim=X_train.shape[1]),
-        Dense(32, activation='relu'),
-        Dense(1)
-    ])
-    model.compile(optimizer=Adam(learning_rate=0.01), loss='mse')
-    model.fit(X_train, y_train, epochs=50, verbose=0)
-    return model
-
-def evaluate_model(model, X_test, y_test, scaler_y, is_keras=False, is_xgboost=False):
-    """Evaluate model performance"""
-    if is_keras:
-        y_pred_scaled = model.predict(X_test)
-    elif is_xgboost:
-        dtest = xgb.DMatrix(X_test)
-        y_pred_scaled = model.predict(dtest)
-    else:
-        y_pred_scaled = model.predict(X_test)
-
-    y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
-    y_test_original = scaler_y.inverse_transform(y_test.reshape(-1, 1)).flatten()
-    
-    mse = mean_squared_error(y_test_original, y_pred)
-    mae = mean_absolute_error(y_test_original, y_pred)
-    rmse = np.sqrt(mse)
-    r2 = r2_score(y_test_original, y_pred)
-    
-    return mse, mae, rmse, r2, y_test_original, y_pred
-
-# Data Preprocessing Page
-if page == "📊 Data Preprocessing":
-    st.header("Data Preprocessing")
-    
-    st.info("""
-    To facilitate hands-on testing of ElectroML, we provide a [sample dataset](https://github.com/tkucukdeniz2/ElectroML/blob/9add814fab2edbb9b22b45d360df56b977732a4c/sensor_data.xlsx) that demonstrates the required data format. The Excel file contains voltammetric measurements organized in a matrix structure where:
-    
-    - The first column 'Con' represents different analyte concentrations (1.25, 2.5, and 5.0 μM in the example)
-    - Subsequent columns contain the measured current responses at different voltage points, ranging from -1.0V to +1.0V in 0.005V increments
-    - Each row represents a complete voltammetric scan for a specific concentration
-    - The dataset includes multiple measurements to demonstrate the framework's ability to handle real experimental data variability
-    """)
-    
-    uploaded_file = st.file_uploader(
-        "Upload your sensor data (Excel file)",
-        type=['xlsx'],
-        help="Upload an Excel file containing your voltammetric measurements"
-    )
-    
-    if uploaded_file is not None:
-        with st.spinner('Processing your data...'):
-            data = pd.read_excel(uploaded_file)
-            
-            st.success("File uploaded successfully!")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("Data Preview")
-                st.dataframe(data.head(), use_container_width=True)
-            
-            with col2:
-                st.subheader("Dataset Information")
-                st.write(f"Total Samples: {len(data)}")
-                st.write(f"Number of Features: {data.shape[1]}")
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
         
-        concentration = data.iloc[:, 0]
-        current_data = data.iloc[:, 1:]
-        voltages = np.array(current_data.columns).astype(float)
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Please upload CSV or Excel file.'}), 400
         
-        # Feature extraction
-        with st.spinner('Extracting features...'):
-            features_df = extract_features(data, voltages)
-            features_df['Concentration'] = concentration
+        # Generate session ID
+        session_id = generate_session_id()
         
-        st.subheader("Extracted Features")
-        st.dataframe(features_df.head(), use_container_width=True)
+        # Save file
+        filename = secure_filename(file.filename)
+        filepath = app.config['UPLOAD_FOLDER'] / f"{session_id}_{filename}"
+        file.save(filepath)
         
-        # Feature importance analysis
-        X = features_df.drop(columns=['Concentration'])
-        y = features_df['Concentration']
+        # Load data
+        if filename.endswith('.csv'):
+            data = pd.read_csv(filepath)
+        else:
+            data = pd.read_excel(filepath)
         
-        model = RandomForestRegressor(n_estimators=100, random_state=42)
-        model.fit(X, y)
+        # Convert all column names to strings to avoid mixed type issues
+        data.columns = [str(col) for col in data.columns]
         
-        importance_df = pd.DataFrame({
-            'Feature': X.columns,
-            'Importance': model.feature_importances_
-        }).sort_values(by='Importance', ascending=False)
-        
-        st.subheader("Feature Importance Analysis")
-        fig = px.bar(importance_df, 
-                    x='Importance', 
-                    y='Feature',
-                    orientation='h',
-                    title='Feature Importance Analysis',
-                    labels={'Importance': 'Relative Importance', 'Feature': 'Feature Name'},
-                    color='Importance',
-                    color_continuous_scale='viridis')
-        
-        fig.update_layout(
-            showlegend=False,
-            height=500,
-            yaxis={'categoryorder':'total ascending'}
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Save processed features
-        st.session_state['processed_features'] = features_df
-        
-        # Download processed data
-        st.download_button(
-            label="📥 Download Processed Features",
-            data=features_df.to_csv(index=False).encode('utf-8'),
-            file_name="processed_features.csv",
-            mime="text/csv",
-            help="Download the extracted features as a CSV file"
-        )
-
-# Model Training Page
-elif page == "🧠 Model Training":
-    st.header("Model Training")
-    
-    if 'processed_features' not in st.session_state:
-        st.warning("⚠️ No processed data available. Please preprocess your data first.")
-        st.info("Go to the Data Preprocessing section to prepare your data.")
-    else:
-        features_df = st.session_state['processed_features']
-        X = features_df.drop(columns=['Concentration'])
-        y = features_df['Concentration']
-        
-        st.success("Features loaded successfully!")
-        
-        # Model selection
-        st.subheader("Select Models to Train")
-        model_descriptions = {
-            'Linear Regression': 'Simple and interpretable baseline model',
-            'SVM': 'Effective for non-linear relationships',
-            'Random Forest': 'Ensemble method with good feature importance analysis',
-            'XGBoost': 'Advanced gradient boosting for high performance',
-            'LightGBM': 'Light and fast gradient boosting framework',
-            'ANN': 'Deep learning approach for complex patterns'
+        # Store in session
+        session_data[session_id] = {
+            'data': data,
+            'filename': filename,
+            'upload_time': datetime.now().isoformat()
         }
         
-        model_functions = {
-            'Linear Regression': train_linear_regression,
-            'SVM': train_svm,
-            'Random Forest': train_random_forest,
-            'XGBoost': train_xgboost,
-            'LightGBM': train_lightgbm,
-            'ANN': train_ann
-        }
-        
-        selected_models = []
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            for model in list(model_descriptions.keys())[:3]:
-                if st.checkbox(f"✓ {model}", help=model_descriptions[model]):
-                    selected_models.append(model)
-                    
-        with col2:
-            for model in list(model_descriptions.keys())[3:]:
-                if st.checkbox(f"✓ {model}", help=model_descriptions[model]):
-                    selected_models.append(model)
-        
-        if st.button("🚀 Train Selected Models"):
-            if not selected_models:
-                st.warning("Please select at least one model to train.")
-            else:
-                results = []
-                loo = LeaveOneOut()
-                
-                # Create columns for parallel progress tracking
-                cols = st.columns(len(selected_models))
-                progress_bars = {model: cols[i].progress(0) for i, model in enumerate(selected_models)}
-                status_texts = {model: cols[i].empty() for i, model in enumerate(selected_models)}
-                
-                for model_name in selected_models:
-                    status_texts[model_name].text(f"Training {model_name}...")
-                    
-                    # Train final model on all data
-                    X_all_scaled = MinMaxScaler().fit_transform(X)
-                    y_all_scaled = MinMaxScaler().fit_transform(y.values.reshape(-1, 1))
-                    final_model = model_functions[model_name](X_all_scaled, y_all_scaled)
-                    
-                    # Perform LOO CV for evaluation
-                    actual_values, predicted_values = [], []
-                    for i, (train_idx, test_idx) in enumerate(loo.split(X)):
-                        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-                        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
-                        
-                        # Normalize data
-                        X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled, scaler_X, scaler_y = normalize_data(
-                            X_train, X_test, y_train, y_test
-                        )
-                        
-                        # Train and evaluate
-                        model = model_functions[model_name](X_train_scaled, y_train_scaled)
-                        _, _, _, _, y_test_orig, y_pred = evaluate_model(
-                            model, X_test_scaled, y_test_scaled, scaler_y,
-                            is_keras=(model_name == 'ANN'),
-                            is_xgboost=(model_name == 'XGBoost')
-                        )
-                        
-                        actual_values.extend(y_test_orig)
-                        predicted_values.extend(y_pred)
-                        
-                        # Update progress
-                        progress = (i + 1) / len(X)
-                        progress_bars[model_name].progress(progress)
-                    
-                    # Calculate final metrics
-                    mse = mean_squared_error(actual_values, predicted_values)
-                    mae = mean_absolute_error(actual_values, predicted_values)
-                    rmse = np.sqrt(mse)
-                    r2 = r2_score(actual_values, predicted_values)
-                    
-                    # Store results
-                    results.append({
-                        'Model': model_name,
-                        'MSE': mse,
-                        'MAE': mae,
-                        'RMSE': rmse,
-                        'R2': r2,
-                        'Actual': actual_values,
-                        'Predicted': predicted_values,
-                        'trained_model': final_model,
-                        'scaler_y': scaler_y
-                    })
-                    
-                    status_texts[model_name].success(f"{model_name} Complete!")
-                
-                # Save results in session state
-                st.session_state['training_results'] = results
-                
-                # Display summary metrics
-                st.subheader("📊 Model Performance Summary")
-                metrics_df = pd.DataFrame([
-                    {
-                        'Model': r['Model'],
-                        'MSE': round(r['MSE'], 4),
-                        'MAE': round(r['MAE'], 4),
-                        'RMSE': round(r['RMSE'], 4),
-                        'R²': round(r['R2'], 4)
-                    }
-                    for r in results
-                ])
-                
-                st.dataframe(
-                    metrics_df.style.background_gradient(subset=['R²'], cmap='viridis'),
-                    use_container_width=True
-                )
-                
-                st.success("🎉 Training completed! Go to Results Visualization or Prediction for detailed analysis.")
-# Results Visualization Page
-elif page == "📈 Results Visualization":
-    st.header("Results Visualization")
-    
-    if 'training_results' not in st.session_state:
-        st.warning("⚠️ No training results available. Please train models first.")
-    else:
-        results = st.session_state['training_results']
-        
-        # Model Performance Overview
-        st.subheader("Model Performance Overview")
-        metrics_df = pd.DataFrame([
-            {
-                'Model': r['Model'],
-                'MSE': r['MSE'],
-                'MAE': r['MAE'],
-                'RMSE': r['RMSE'],
-                'R²': r['R2']
+        # Generate preview
+        preview = {
+            'session_id': session_id,
+            'filename': filename,
+            'shape': data.shape,
+            'columns': list(data.columns)[:20],  # First 20 columns (already strings)
+            'sample_data': data.head(10).to_dict('records'),  # Column names are already strings
+            'concentration_range': {
+                'min': float(data.iloc[:, 0].min()),
+                'max': float(data.iloc[:, 0].max()),
+                'unique': int(data.iloc[:, 0].nunique())
             }
-            for r in results
-        ])
+        }
         
-        # Interactive metric comparison
-        col1, col2 = st.columns([1, 2])
+        # Create initial plot
+        plot_data = create_voltammogram_plot(data)
+        preview['plot'] = plot_data
         
-        with col1:
-            comparison_metric = st.selectbox(
-                "Select Performance Metric",
-                ["R²", "RMSE", "MSE", "MAE"],
-                help="Choose the metric to compare across models"
-            )
+        return jsonify(preview), 200
         
-        with col2:
-            fig = px.bar(
-                metrics_df,
-                x='Model',
-                y=comparison_metric,
-                title=f'Model Comparison by {comparison_metric}',
-                color=comparison_metric,
-                color_continuous_scale='viridis'
-            )
-            fig.update_layout(showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        import traceback
+        logger.error(f"Upload error: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
+@app.route('/api/extract_features', methods=['POST'])
+def extract_features():
+    """Extract features from uploaded data."""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
         
-        # Detailed Model Analysis
-        st.subheader("Detailed Model Analysis")
+        if not session_id or session_id not in session_data:
+            return jsonify({'error': 'Invalid session'}), 400
         
-        col1, col2 = st.columns([1, 3])
+        # Get data
+        df = session_data[session_id]['data']
         
-        with col1:
-            selected_model = st.selectbox(
-                "Select Model for Analysis",
-                [r['Model'] for r in results]
-            )
-            
-            viz_type = st.selectbox(
-                "Select Visualization",
-                ["Actual vs Predicted", "Residual Plot", "Error Distribution"]
-            )
+        # Extract features
+        smoothing = data.get('smoothing', True)
+        window_length = data.get('window_length', 11)
+        polyorder = data.get('polyorder', 3)
         
-        with col2:
-            model_data = next(r for r in results if r['Model'] == selected_model)
-            
-            if viz_type == "Actual vs Predicted":
-                fig = px.scatter(
-                    x=model_data['Actual'],
-                    y=model_data['Predicted'],
-                    labels={'x': 'Actual Values', 'y': 'Predicted Values'},
-                    title=f'{selected_model} - Actual vs Predicted'
-                )
-                
-                # Add ideal line
-                min_val = min(min(model_data['Actual']), min(model_data['Predicted']))
-                max_val = max(max(model_data['Actual']), max(model_data['Predicted']))
-                fig.add_trace(
-                    go.Scatter(
-                        x=[min_val, max_val],
-                        y=[min_val, max_val],
-                        mode='lines',
-                        name='Ideal',
-                        line=dict(dash='dash', color='red')
-                    )
-                )
-                
-            elif viz_type == "Residual Plot":
-                residuals = np.array(model_data['Predicted']) - np.array(model_data['Actual'])
-                fig = px.scatter(
-                    x=model_data['Predicted'],
-                    y=residuals,
-                    labels={'x': 'Predicted Values', 'y': 'Residuals'},
-                    title=f'{selected_model} - Residual Plot'
-                )
-                fig.add_hline(y=0, line_dash="dash", line_color="red")
-                
-            else:  # Error Distribution
-                residuals = np.array(model_data['Predicted']) - np.array(model_data['Actual'])
-                fig = px.histogram(
-                    x=residuals,
-                    nbins=20,
-                    title=f'{selected_model} - Error Distribution',
-                    labels={'x': 'Prediction Error', 'y': 'Count'}
-                )
-            
-            st.plotly_chart(fig, use_container_width=True)
+        # Convert string column names to float (they were converted to strings during upload)
+        voltages = np.array([float(col) for col in df.columns[1:]])
         
-        # Export Results
-        st.subheader("Export Results")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Download individual model results
-            results_df = pd.DataFrame({
-                'Actual': model_data['Actual'],
-                'Predicted': model_data['Predicted']
-            })
-            
-            st.download_button(
-                label="📥 Download Selected Model Results",
-                data=results_df.to_csv(index=False).encode('utf-8'),
-                file_name=f"{selected_model.lower().replace(' ', '_')}_results.csv",
-                mime="text/csv"
-            )
-        
-        with col2:
-            # Export all results
-            if st.button("📊 Export Complete Analysis"):
-                buffer = io.BytesIO()
-                
-                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                    metrics_df.to_excel(writer, sheet_name='Metrics_Summary', index=False)
-                    
-                    for result in results:
-                        model_name = result['Model']
-                        pd.DataFrame({
-                            'Actual': result['Actual'],
-                            'Predicted': result['Predicted']
-                        }).to_excel(writer, sheet_name=f'{model_name[:31]}_Results', index=False)
-                
-                buffer.seek(0)
-                st.download_button(
-                    label="📥 Download Complete Analysis",
-                    data=buffer,
-                    file_name="dpv_analysis_results.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                
-# Prediction Page
-elif page == "🔮 Prediction":
-    st.header("Concentration Prediction")
-    
-    st.info("""
-    Upload new DPV sensor data to predict analyte concentrations using trained models. 
-    The input data should follow the same format as training data:
-    - Current responses for each voltage point
-    - No concentration value needed for prediction (Use zero as value)
-    """)
-    
-    if 'training_results' not in st.session_state:
-        st.warning("⚠️ No trained models available. Please train models first.")
-        st.info("Go to the Model Training section to train models before making predictions.")
-    else:
-        # File upload for new data
-        uploaded_file = st.file_uploader(
-            "Upload new DPV measurements (Excel file)",
-            type=['xlsx'],
-            help="Upload an Excel file containing new voltammetric measurements"
+        extractor = FeatureExtractor(
+            smoothing=smoothing,
+            window_length=window_length,
+            polyorder=polyorder
         )
         
-        if uploaded_file is not None:
-            with st.spinner('Processing new data...'):
-                try:
-                    # Load and process new data
-                    new_data = pd.read_excel(uploaded_file)
-                    
-                    # Check if data format is correct
-                    if new_data.shape[1] < 2:
-                        st.error("Invalid data format. Please ensure your file contains voltage and current measurements.")
-                        st.stop()
-                    
-                    voltages = np.array(new_data.columns[1:]).astype(float)
-                    
-                    # Extract features from new data
-                    features_df = extract_features(new_data, voltages)
-                    
-                    # Model selection
-                    available_models = [r['Model'] for r in st.session_state['training_results']]
-                    selected_model = st.selectbox(
-                        "Select Model for Prediction",
-                        available_models,
-                        help="Choose the model to use for concentration prediction"
-                    )
-                    
-                    if st.button("🔮 Predict Concentration"):
-                        with st.spinner('Making predictions...'):
-                            # Get the selected model results
-                            model_result = next(r for r in st.session_state['training_results'] 
-                                             if r['Model'] == selected_model)
-                            
-                            # Normalize features
-                            X = features_df
-                            scaler_X = MinMaxScaler()
-                            X_scaled = scaler_X.fit_transform(X)
-                            
-                            # Make predictions
-                            model = model_result['trained_model']
-                            if selected_model == 'XGBoost':
-                                dtest = xgb.DMatrix(X_scaled)
-                                predictions_scaled = model.predict(dtest)
-                            elif selected_model == 'ANN':
-                                predictions_scaled = model.predict(X_scaled)
-                            else:
-                                predictions_scaled = model.predict(X_scaled)
-                            
-                            # Inverse transform predictions
-                            predictions = model_result['scaler_y'].inverse_transform(
-                                predictions_scaled.reshape(-1, 1)
-                            ).flatten()
-                            
-                            # Display results
-                            st.subheader("Prediction Results")
-                            
-                            results_df = pd.DataFrame({
-                                'Sample': range(1, len(predictions) + 1),
-                                'Predicted Concentration (μM)': predictions
-                            })
-                            
-                            st.dataframe(results_df.style.format({
-                                'Predicted Concentration (μM)': '{:.3f}'
-                            }))
-                            
-                            # Visualization
-                            fig = px.scatter(
-                                results_df,
-                                x='Sample',
-                                y='Predicted Concentration (μM)',
-                                title='Predicted Concentrations by Sample',
-                                labels={'Sample': 'Sample Number'}
-                            )
-                            fig.update_traces(marker=dict(size=10))
-                            fig.update_layout(
-                                height=500,
-                                showlegend=False
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                            # Download predictions
-                            st.download_button(
-                                label="📥 Download Predictions",
-                                data=results_df.to_csv(index=False).encode('utf-8'),
-                                file_name="concentration_predictions.csv",
-                                mime="text/csv"
-                            )
-                            
-                            # Model performance metrics
-                            st.subheader("Model Performance Metrics")
-                            col1, col2, col3, col4 = st.columns(4)
-                            
-                            with col1:
-                                st.metric("R² Score", f"{model_result['R2']:.3f}")
-                            with col2:
-                                st.metric("RMSE", f"{model_result['RMSE']:.3f}")
-                            with col3:
-                                st.metric("MAE", f"{model_result['MAE']:.3f}")
-                            with col4:
-                                st.metric("MSE", f"{model_result['MSE']:.3f}")
-                            
-                            st.info("""
-                            Note: These metrics are based on the model's performance during training. 
-                            Actual prediction accuracy may vary depending on the similarity between 
-                            training data and new measurements.
-                            """)
-                            
-                except Exception as e:
-                    st.error(f"Error processing data: {str(e)}")
-                    st.info("Please ensure your input data follows the required format.")
+        features_df = extractor.extract_features(df, voltages)
+        
+        # Store features
+        session_data[session_id]['features'] = features_df
+        
+        # Calculate feature importance
+        from sklearn.ensemble import RandomForestRegressor
+        X = features_df.drop(columns=['Concentration'])
+        y = features_df['Concentration']
+        
+        rf = RandomForestRegressor(n_estimators=100, random_state=42)
+        rf.fit(X, y)
+        
+        importance = pd.DataFrame({
+            'feature': X.columns,
+            'importance': rf.feature_importances_
+        }).sort_values('importance', ascending=False)
+        
+        # Create feature importance plot
+        importance_plot = create_feature_importance_plot(importance)
+        
+        response = {
+            'features': features_df.describe().to_dict(),
+            'feature_names': list(X.columns),
+            'n_features': len(X.columns),
+            'n_samples': len(features_df),
+            'importance_plot': importance_plot,
+            'top_features': importance.head(10).to_dict('records')
+        }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Feature extraction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/train', methods=['POST'])
+def train_models():
+    """Train machine learning models."""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        
+        if not session_id or session_id not in session_data:
+            return jsonify({'error': 'Invalid session'}), 400
+        
+        if 'features' not in session_data[session_id]:
+            return jsonify({'error': 'Please extract features first'}), 400
+        
+        # Get features
+        features_df = session_data[session_id]['features']
+        X = features_df.drop(columns=['Concentration'])
+        y = features_df['Concentration']
+        
+        # Get training parameters
+        models_to_train = data.get('models', ['linear_regression', 'random_forest'])
+        cv_strategy = data.get('cv_strategy', 'loo')
+        optimize = data.get('optimize_hyperparameters', False)
+        
+        # Configure training
+        n_samples = len(X)
+        if n_samples < 5:
+            cv_strategy = 'loo'  # Force LOO for small datasets
+        
+        config = TrainingConfig(
+            cv_strategy=cv_strategy,
+            n_splits=min(5, n_samples),
+            optimize_hyperparams=optimize,
+            n_trials=50 if optimize else 0
+        )
+        
+        trainer = ModelTrainer(config)
+        results = {}
+        
+        # Train each model
+        for model_name in models_to_train:
+            try:
+                logger.info(f"Training {model_name}...")
+                
+                # Create model
+                model_class = lambda **kwargs: ModelFactory.create_model(model_name, kwargs)
+                param_space = ModelFactory.get_param_space(model_name) if optimize else None
+                
+                # Train
+                result = trainer.train_model(model_class, X, y, model_name, param_space)
+                
+                # Store result with NaN/Inf handling
+                results[model_name] = {
+                    'metrics': clean_nan_inf(result.metrics),
+                    'cv_scores': {
+                        'mean': float(np.mean(result.cv_scores['test_r2'])) if result.cv_scores else 0.0,
+                        'std': float(np.std(result.cv_scores['test_r2'])) if result.cv_scores else 0.0
+                    }
+                }
+                # Clean the cv_scores too
+                results[model_name]['cv_scores'] = clean_nan_inf(results[model_name]['cv_scores'])
+                
+                # Store model for predictions
+                if 'models' not in session_data[session_id]:
+                    session_data[session_id]['models'] = {}
+                session_data[session_id]['models'][model_name] = result
+                
+            except Exception as e:
+                import traceback
+                logger.error(f"Failed to train {model_name}: {e}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                results[model_name] = {'error': str(e)}
+        
+        # Create comparison plot
+        comparison_plot = create_model_comparison_plot(results)
+        
+        # Create prediction plots for best model (filter out models with errors)
+        valid_models = {k: v for k, v in results.items() if 'error' not in v and 'metrics' in v}
+        
+        if not valid_models:
+            return jsonify({'error': 'All models failed to train'}), 500
+        
+        best_model_name = max(valid_models.keys(), 
+                            key=lambda k: valid_models[k].get('metrics', {}).get('r2', -float('inf')))
+        best_model_result = session_data[session_id]['models'][best_model_name]
+        
+        prediction_plot = create_prediction_plot(
+            best_model_result.actual_values,
+            best_model_result.predictions
+        )
+        
+        response = {
+            'results': results,
+            'comparison_plot': comparison_plot,
+            'prediction_plot': prediction_plot,
+            'best_model': best_model_name
+        }
+        
+        # Clean any remaining NaN/Inf values
+        response = clean_nan_inf(response)
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Training error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/predict', methods=['POST'])
+def predict():
+    """Make predictions on new data."""
+    try:
+        session_id = request.form.get('session_id')
+        model_name = request.form.get('model_name')
+        
+        if not session_id or session_id not in session_data:
+            return jsonify({'error': 'Invalid session'}), 400
+        
+        if 'models' not in session_data[session_id]:
+            return jsonify({'error': 'No trained models available'}), 400
+        
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        
+        # Load new data
+        filename = secure_filename(file.filename)
+        filepath = app.config['UPLOAD_FOLDER'] / f"pred_{session_id}_{filename}"
+        file.save(filepath)
+        
+        if filename.endswith('.csv'):
+            new_data = pd.read_csv(filepath)
+        else:
+            new_data = pd.read_excel(filepath)
+        
+        # Extract features
+        voltages = np.array(new_data.columns[1:].astype(float))
+        extractor = FeatureExtractor()
+        features_df = extractor.extract_features(new_data, voltages)
+        
+        # Get model
+        if model_name not in session_data[session_id]['models']:
+            return jsonify({'error': f'Model {model_name} not found'}), 400
+        
+        model_result = session_data[session_id]['models'][model_name]
+        
+        # Prepare features
+        X = features_df.drop(columns=['Concentration'])
+        X_scaled = model_result.scaler_X.transform(X)
+        
+        # Predict
+        predictions_scaled = model_result.model.predict(X_scaled)
+        predictions = model_result.scaler_y.inverse_transform(
+            predictions_scaled.reshape(-1, 1)
+        ).ravel()
+        
+        # Create results
+        results = []
+        for i, pred in enumerate(predictions):
+            results.append({
+                'sample': i + 1,
+                'prediction': float(pred),
+                'confidence_lower': float(pred * 0.95),  # Placeholder
+                'confidence_upper': float(pred * 1.05)   # Placeholder
+            })
+        
+        # Create visualization
+        pred_plot = create_prediction_results_plot(results)
+        
+        response = {
+            'predictions': results,
+            'plot': pred_plot,
+            'model_used': model_name,
+            'n_samples': len(predictions)
+        }
+        
+        # Clean up
+        os.remove(filepath)
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Prediction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/export/<session_id>')
+def export_results(session_id):
+    """Export analysis results."""
+    try:
+        if session_id not in session_data:
+            return jsonify({'error': 'Invalid session'}), 400
+        
+        # Create Excel file with results
+        output = io.BytesIO()
+        
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Write features if available
+            if 'features' in session_data[session_id]:
+                session_data[session_id]['features'].to_excel(
+                    writer, sheet_name='Features', index=False
+                )
+            
+            # Write model results if available
+            if 'models' in session_data[session_id]:
+                results_data = []
+                for model_name, result in session_data[session_id]['models'].items():
+                    results_data.append({
+                        'Model': model_name,
+                        'R2': result.metrics['r2'],
+                        'RMSE': result.metrics['rmse'],
+                        'MAE': result.metrics['mae']
+                    })
+                
+                pd.DataFrame(results_data).to_excel(
+                    writer, sheet_name='Model Results', index=False
+                )
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'electroml_results_{session_id[:8]}.xlsx'
+        )
+        
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# Plotting functions
+def create_voltammogram_plot(data):
+    """Create voltammogram plot."""
+    # Convert string column names to float (they were converted to strings during upload)
+    voltages = np.array([float(col) for col in data.columns[1:]])
+    
+    traces = []
+    n_samples = min(10, len(data))  # Plot up to 10 samples
+    
+    for i in range(n_samples):
+        current = data.iloc[i, 1:].values
+        concentration = data.iloc[i, 0]
+        
+        traces.append(go.Scatter(
+            x=list(voltages),
+            y=list(current),
+            mode='lines',
+            name=f'C={concentration:.2f} μM',
+            line=dict(width=2)
+        ))
+    
+    layout = go.Layout(
+        title='Voltammogram',
+        xaxis=dict(title='Voltage (V)'),
+        yaxis=dict(title='Current (A)'),
+        hovermode='closest',
+        showlegend=True
+    )
+    
+    fig = go.Figure(data=traces, layout=layout)
+    return json.loads(plotly.utils.PlotlyJSONEncoder().encode(fig))
+
+
+def create_feature_importance_plot(importance_df):
+    """Create feature importance bar plot."""
+    top_features = importance_df.head(15)
+    
+    trace = go.Bar(
+        x=list(top_features['importance']),
+        y=list(top_features['feature']),
+        orientation='h',
+        marker=dict(color='rgb(33, 150, 243)')
+    )
+    
+    layout = go.Layout(
+        title='Feature Importance',
+        xaxis=dict(title='Importance'),
+        yaxis=dict(title='Feature'),
+        margin=dict(l=150)
+    )
+    
+    fig = go.Figure(data=[trace], layout=layout)
+    return json.loads(plotly.utils.PlotlyJSONEncoder().encode(fig))
+
+
+def create_model_comparison_plot(results):
+    """Create model comparison bar plot."""
+    models = []
+    r2_scores = []
+    
+    for model_name, result in results.items():
+        if 'metrics' in result:
+            models.append(model_name)
+            r2_scores.append(result['metrics']['r2'])
+    
+    trace = go.Bar(
+        x=models,
+        y=r2_scores,
+        marker=dict(color='rgb(76, 175, 80)')
+    )
+    
+    layout = go.Layout(
+        title='Model Comparison',
+        xaxis=dict(title='Model'),
+        yaxis=dict(title='R² Score'),
+        showlegend=False
+    )
+    
+    fig = go.Figure(data=[trace], layout=layout)
+    return json.loads(plotly.utils.PlotlyJSONEncoder().encode(fig))
+
+
+def create_prediction_plot(actual, predicted):
+    """Create actual vs predicted scatter plot."""
+    trace = go.Scatter(
+        x=list(actual),
+        y=list(predicted),
+        mode='markers',
+        marker=dict(size=10, color='rgb(255, 152, 0)'),
+        name='Predictions'
+    )
+    
+    # Add ideal line
+    min_val = min(min(actual), min(predicted))
+    max_val = max(max(actual), max(predicted))
+    
+    ideal_trace = go.Scatter(
+        x=[min_val, max_val],
+        y=[min_val, max_val],
+        mode='lines',
+        line=dict(dash='dash', color='red'),
+        name='Ideal'
+    )
+    
+    layout = go.Layout(
+        title='Actual vs Predicted',
+        xaxis=dict(title='Actual Values'),
+        yaxis=dict(title='Predicted Values'),
+        hovermode='closest'
+    )
+    
+    fig = go.Figure(data=[trace, ideal_trace], layout=layout)
+    return json.loads(plotly.utils.PlotlyJSONEncoder().encode(fig))
+
+
+def create_prediction_results_plot(results):
+    """Create prediction results bar plot."""
+    samples = [r['sample'] for r in results]
+    predictions = [r['prediction'] for r in results]
+    
+    trace = go.Bar(
+        x=samples,
+        y=predictions,
+        marker=dict(color='rgb(156, 39, 176)')
+    )
+    
+    layout = go.Layout(
+        title='Predicted Concentrations',
+        xaxis=dict(title='Sample'),
+        yaxis=dict(title='Concentration (μM)'),
+        showlegend=False
+    )
+    
+    fig = go.Figure(data=[trace], layout=layout)
+    return json.loads(plotly.utils.PlotlyJSONEncoder().encode(fig))
+
+
+if __name__ == '__main__':
+    # Run the application
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
