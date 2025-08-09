@@ -5,8 +5,8 @@ scipy>=1.12.0
 
 # Machine Learning
 scikit-learn>=1.4.0
-xgboost>=2.0.0
-lightgbm>=4.2.0
+# Optional: xgboost>=2.0.0  # May have issues with macOS
+# Optional: lightgbm>=4.2.0  # May have issues with macOS
 
 # Web Framework
 flask>=3.0.0
