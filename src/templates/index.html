@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ElectroML - Electrochemical Data Analysis</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <!-- Tooltip CSS -->
+    <link href="{{ url_for('static', filename='css/tooltips.css') }}" rel="stylesheet">
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-flask"></i> ElectroML
+            </a>
+            <span class="navbar-text text-white">
+                Machine Learning for Electrochemical Analysis
+            </span>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">Workflow</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="workflow-steps">
+                            <div class="step active" id="step-1">
+                                <i class="fas fa-upload"></i> Upload Data
+                            </div>
+                            <div class="step" id="step-2">
+                                <i class="fas fa-cogs"></i> Extract Features
+                            </div>
+                            <div class="step" id="step-3">
+                                <i class="fas fa-brain"></i> Train Models
+                            </div>
+                            <div class="step" id="step-4">
+                                <i class="fas fa-chart-line"></i> Predict
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="card mt-3">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">Information</h6>
+                    </div>
+                    <div class="card-body" id="info-panel">
+                        <p class="small">Upload your voltammetric data to begin analysis.</p>
+                        <p class="small">Supported formats: CSV, Excel (.xlsx, .xls)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" 
+                                data-bs-target="#upload" type="button">
+                            <i class="fas fa-upload"></i> Data Upload
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="features-tab" data-bs-toggle="tab" 
+                                data-bs-target="#features" type="button" disabled>
+                            <i class="fas fa-cogs"></i> Feature Extraction
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="training-tab" data-bs-toggle="tab" 
+                                data-bs-target="#training" type="button" disabled>
+                            <i class="fas fa-brain"></i> Model Training
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="prediction-tab" data-bs-toggle="tab" 
+                                data-bs-target="#prediction" type="button" disabled>
+                            <i class="fas fa-chart-line"></i> Prediction
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="mainTabContent">
+                    <!-- Upload Tab -->
+                    <div class="tab-pane fade show active" id="upload" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Upload Voltammetric Data
+                                    <span class="electroml-tooltip">
+                                        <span class="tooltip-icon important">?</span>
+                                        <span class="tooltiptext">
+                                            <div class="tooltip-header">Voltammetric Data Format</div>
+                                            <div>Your data should be in Excel or CSV format with:</div>
+                                            <ul class="tooltip-list">
+                                                <li>Column 1: Concentration (μM)</li>
+                                                <li>Columns 2+: Current measurements at different voltages</li>
+                                            </ul>
+                                            <div class="tooltip-formula">Voltage range: -1V to +1V (0.005V steps)</div>
+                                            <div class="tooltip-example">Example: Cyclic Voltammetry or Differential Pulse Voltammetry data</div>
+                                        </span>
+                                    </span>
+                                </h5>
+                                
+                                <!-- Drop Zone -->
+                                <div class="drop-zone" id="dropZone">
+                                    <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                                    <p>Drag and drop your data file here</p>
+                                    <p>or</p>
+                                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                        Browse Files
+                                    </button>
+                                    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display: none;">
+                                </div>
+
+                                <!-- Data Preview -->
+                                <div id="dataPreview" style="display: none;">
+                                    <h6 class="mt-4">Data Preview</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="info-box">
+                                                <label>File:</label> <span id="fileName"></span><br>
+                                                <label>Samples:</label> <span id="nSamples"></span><br>
+                                                <label>Features:</label> <span id="nFeatures"></span><br>
+                                                <label>Concentration Range:</label> <span id="concRange"></span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div id="voltammogramPlot"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="table-responsive mt-3">
+                                        <table class="table table-sm" id="dataTable">
+                                            <thead></thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <button class="btn btn-success mt-3" onclick="proceedToFeatures()">
+                                        Proceed to Feature Extraction <i class="fas fa-arrow-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Features Tab -->
+                    <div class="tab-pane fade" id="features" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Feature Extraction
+                                    <span class="electroml-tooltip">
+                                        <span class="tooltip-icon important">?</span>
+                                        <span class="tooltiptext feature-tooltip">
+                                            <div class="tooltip-header">What is Feature Extraction?</div>
+                                            <div>Converts raw voltammetric curves into numerical features that ML models can understand. Like identifying peaks in chromatography!</div>
+                                            <div class="mt-2">We extract 16 key features:</div>
+                                            <ul class="tooltip-list">
+                                                <li>Peak characteristics (height, area, position)</li>
+                                                <li>Statistical measures (mean, std, skewness)</li>
+                                                <li>Signal quality metrics</li>
+                                            </ul>
+                                            <div class="tooltip-emphasis">These features capture the electrochemical "fingerprint" of your analyte</div>
+                                        </span>
+                                    </span>
+                                </h5>
+                                
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <h6>Preprocessing Options</h6>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="smoothingCheck" checked>
+                                            <label class="form-check-label" for="smoothingCheck">
+                                                Apply Smoothing
+                                                <span class="electroml-tooltip">
+                                                    <span class="tooltip-icon">?</span>
+                                                    <span class="tooltiptext">
+                                                        <div class="tooltip-header">Savitzky-Golay Smoothing</div>
+                                                        <div>Reduces noise while preserving peak shape. Essential for noisy electrochemical data.</div>
+                                                        <div class="tooltip-formula">Fits polynomial to moving window</div>
+                                                        <div class="tooltip-example">Recommended for data with S/N < 50</div>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="windowLength" class="form-label">Window Length
+                                                <span class="electroml-tooltip">
+                                                    <span class="tooltip-icon">?</span>
+                                                    <span class="tooltiptext">
+                                                        <div class="tooltip-header">Smoothing Window Size</div>
+                                                        <div>Number of data points used for smoothing. Must be odd.</div>
+                                                        <div class="tooltip-emphasis">Larger = smoother but may lose sharp peaks</div>
+                                                        <div class="tooltip-example">11-15 points typical for voltammetry</div>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                            <input type="number" class="form-control" id="windowLength" value="11" min="3" max="51" step="2">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="polyOrder" class="form-label">Polynomial Order
+                                                <span class="electroml-tooltip">
+                                                    <span class="tooltip-icon">?</span>
+                                                    <span class="tooltiptext">
+                                                        <div class="tooltip-header">Polynomial Degree</div>
+                                                        <div>Order of polynomial used for fitting. Higher order = more flexible fit.</div>
+                                                        <div class="tooltip-emphasis">Must be less than window length</div>
+                                                        <div class="tooltip-example">Order 2-3 preserves peaks well</div>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                            <input type="number" class="form-control" id="polyOrder" value="3" min="1" max="10">
+                                        </div>
+                                        
+                                        <button class="btn btn-primary" onclick="extractFeatures()">
+                                            <i class="fas fa-cogs"></i> Extract Features
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="col-md-8">
+                                        <div id="featureResults" style="display: none;">
+                                            <h6>Feature Extraction Results</h6>
+                                            <div class="alert alert-success">
+                                                <i class="fas fa-check-circle"></i> 
+                                                Extracted <span id="nExtractedFeatures"></span> features from 
+                                                <span id="nExtractedSamples"></span> samples
+                                            </div>
+                                            
+                                            <div id="featureImportancePlot"></div>
+                                            
+                                            <button class="btn btn-success mt-3" onclick="proceedToTraining()">
+                                                Proceed to Model Training <i class="fas fa-arrow-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Training Tab -->
+                    <div class="tab-pane fade" id="training" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Model Training
+                                    <span class="electroml-tooltip">
+                                        <span class="tooltip-icon important">?</span>
+                                        <span class="tooltiptext model-tooltip">
+                                            <div class="tooltip-header">Machine Learning Training</div>
+                                            <div>Models learn the relationship between extracted features and concentration.</div>
+                                            <div class="mt-2">Process:</div>
+                                            <ul class="tooltip-list">
+                                                <li>Split data into training/test sets</li>
+                                                <li>Train multiple algorithms</li>
+                                                <li>Validate with cross-validation</li>
+                                                <li>Select best performing model</li>
+                                            </ul>
+                                            <div class="tooltip-emphasis">Like calibration curves but handles non-linear relationships!</div>
+                                        </span>
+                                    </span>
+                                </h5>
+                                
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <h6>Select Models</h6>
+                                        <div class="model-selection">
+                                            <div class="form-check">
+                                                <input class="form-check-input model-check" type="checkbox" 
+                                                       value="linear_regression" id="linearReg" checked>
+                                                <label class="form-check-label" for="linearReg">
+                                                    Linear Regression
+                                                    <span class="electroml-tooltip">
+                                                        <span class="tooltip-icon">?</span>
+                                                        <span class="tooltiptext model-tooltip">
+                                                            <div class="tooltip-header">Linear Regression</div>
+                                                            <div>Simplest model - fits straight line like traditional calibration.</div>
+                                                            <div class="tooltip-formula">C = a₀ + a₁×feature₁ + a₂×feature₂ + ...</div>
+                                                            <div class="tooltip-emphasis">Good baseline, fast, interpretable</div>
+                                                            <div class="tooltip-example">Use first to establish baseline performance</div>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input model-check" type="checkbox" 
+                                                       value="ridge" id="ridge" checked>
+                                                <label class="form-check-label" for="ridge">
+                                                    Ridge Regression
+                                                    <span class="electroml-tooltip">
+                                                        <span class="tooltip-icon">?</span>
+                                                        <span class="tooltiptext model-tooltip">
+                                                            <div class="tooltip-header">Ridge Regression</div>
+                                                            <div>Linear model with regularization to prevent overfitting.</div>
+                                                            <div class="tooltip-emphasis">Better than linear when features are correlated</div>
+                                                            <div class="tooltip-example">Good for small datasets or multicollinear features</div>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input model-check" type="checkbox" 
+                                                       value="random_forest" id="rf" checked>
+                                                <label class="form-check-label" for="rf">
+                                                    Random Forest
+                                                    <span class="electroml-tooltip">
+                                                        <span class="tooltip-icon">?</span>
+                                                        <span class="tooltiptext model-tooltip">
+                                                            <div class="tooltip-header">Random Forest</div>
+                                                            <div>Ensemble of decision trees - very robust and accurate.</div>
+                                                            <div class="tooltip-emphasis">Handles non-linear relationships well</div>
+                                                            <ul class="tooltip-list">
+                                                                <li>Provides feature importance</li>
+                                                                <li>Resistant to outliers</li>
+                                                                <li>No scaling needed</li>
+                                                            </ul>
+                                                            <div class="tooltip-example">Often best for electrochemical data</div>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input model-check" type="checkbox" 
+                                                       value="svm" id="svm">
+                                                <label class="form-check-label" for="svm">
+                                                    Support Vector Machine
+                                                    <span class="electroml-tooltip">
+                                                        <span class="tooltip-icon">?</span>
+                                                        <span class="tooltiptext model-tooltip">
+                                                            <div class="tooltip-header">Support Vector Machine (SVM)</div>
+                                                            <div>Finds optimal separation boundary using kernel functions.</div>
+                                                            <div class="tooltip-formula">RBF kernel: K(x,y) = exp(-γ||x-y||²)</div>
+                                                            <div class="tooltip-emphasis">Good for complex patterns</div>
+                                                            <div class="tooltip-example">Requires data normalization!</div>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input model-check" type="checkbox" 
+                                                       value="gradient_boosting" id="gb">
+                                                <label class="form-check-label" for="gb">
+                                                    Gradient Boosting
+                                                    <span class="electroml-tooltip">
+                                                        <span class="tooltip-icon">?</span>
+                                                        <span class="tooltiptext model-tooltip">
+                                                            <div class="tooltip-header">Gradient Boosting</div>
+                                                            <div>Builds models sequentially, each correcting previous errors.</div>
+                                                            <div class="tooltip-emphasis">Very accurate but slow to train</div>
+                                                            <ul class="tooltip-list">
+                                                                <li>High accuracy potential</li>
+                                                                <li>Risk of overfitting</li>
+                                                                <li>Many hyperparameters</li>
+                                                            </ul>
+                                                            <div class="tooltip-example">Use when accuracy is critical</div>
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        
+                                        <h6 class="mt-3">Training Options</h6>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="optimizeCheck">
+                                            <label class="form-check-label" for="optimizeCheck">
+                                                Optimize Hyperparameters
+                                                <span class="electroml-tooltip">
+                                                    <span class="tooltip-icon">?</span>
+                                                    <span class="tooltiptext">
+                                                        <div class="tooltip-header">Hyperparameter Optimization</div>
+                                                        <div>Automatically finds best model settings (like tuning an instrument!).</div>
+                                                        <div class="mt-2">Uses Bayesian optimization to test parameter combinations.</div>
+                                                        <div class="tooltip-emphasis">Improves accuracy by 10-30%</div>
+                                                        <div class="tooltip-example">Takes 5-30 min depending on data size</div>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                        
+                                        <button class="btn btn-primary mt-3" onclick="trainModels()">
+                                            <i class="fas fa-brain"></i> Train Models
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="col-md-8">
+                                        <!-- Progress -->
+                                        <div id="trainingProgress" style="display: none;">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-spinner fa-spin"></i> Training models...
+                                            </div>
+                                            <div class="progress">
+                                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                     role="progressbar" style="width: 100%"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Results -->
+                                        <div id="trainingResults" style="display: none;">
+                                            <h6>Training Results</h6>
+                                            <table class="table table-striped" id="resultsTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Model</th>
+                                                        <th>R² Score
+                                                            <span class="electroml-tooltip">
+                                                                <span class="tooltip-icon">?</span>
+                                                                <span class="tooltiptext metric-tooltip">
+                                                                    <div class="tooltip-header">R² Score</div>
+                                                                    <div>Fraction of variance explained (0-1)</div>
+                                                                    <div class="tooltip-emphasis">Higher is better</div>
+                                                                    <div class="tooltip-example">0.95 = excellent, 0.8 = good</div>
+                                                                </span>
+                                                            </span>
+                                                        </th>
+                                                        <th>RMSE
+                                                            <span class="electroml-tooltip">
+                                                                <span class="tooltip-icon">?</span>
+                                                                <span class="tooltiptext metric-tooltip">
+                                                                    <div class="tooltip-header">Root Mean Square Error</div>
+                                                                    <div>Average error in μM</div>
+                                                                    <div class="tooltip-emphasis">Lower is better</div>
+                                                                    <div class="tooltip-example">Compare to concentration range</div>
+                                                                </span>
+                                                            </span>
+                                                        </th>
+                                                        <th>MAE
+                                                            <span class="electroml-tooltip">
+                                                                <span class="tooltip-icon">?</span>
+                                                                <span class="tooltiptext metric-tooltip">
+                                                                    <div class="tooltip-header">Mean Absolute Error</div>
+                                                                    <div>Average absolute error in μM</div>
+                                                                    <div class="tooltip-emphasis">More robust to outliers</div>
+                                                                </span>
+                                                            </span>
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                            
+                                            <div id="comparisonPlot"></div>
+                                            <div id="predictionPlot" class="mt-3"></div>
+                                            
+                                            <button class="btn btn-success mt-3" onclick="proceedToPrediction()">
+                                                Proceed to Prediction <i class="fas fa-arrow-right"></i>
+                                            </button>
+                                            
+                                            <button class="btn btn-secondary mt-3" onclick="exportResults()">
+                                                <i class="fas fa-download"></i> Export Results
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prediction Tab -->
+                    <div class="tab-pane fade" id="prediction" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-body">
+                                <h5 class="card-title">Make Predictions
+                                    <span class="electroml-tooltip">
+                                        <span class="tooltip-icon important">?</span>
+                                        <span class="tooltiptext">
+                                            <div class="tooltip-header">Prediction Process</div>
+                                            <div>Apply trained model to new voltammetric data to predict unknown concentrations.</div>
+                                            <div class="mt-2">Steps:</div>
+                                            <ul class="tooltip-list">
+                                                <li>Extract same features from new data</li>
+                                                <li>Apply same normalization</li>
+                                                <li>Use trained model to predict</li>
+                                                <li>Inverse transform to get concentration</li>
+                                            </ul>
+                                            <div class="tooltip-emphasis">Like using a calibration curve for unknowns!</div>
+                                        </span>
+                                    </span>
+                                </h5>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Upload New Data</h6>
+                                        <div class="mb-3">
+                                            <input type="file" class="form-control" id="predFileInput" 
+                                                   accept=".csv,.xlsx,.xls">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="modelSelect" class="form-label">Select Model</label>
+                                            <select class="form-select" id="modelSelect"></select>
+                                        </div>
+                                        
+                                        <button class="btn btn-primary" onclick="makePredictions()">
+                                            <i class="fas fa-chart-line"></i> Make Predictions
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div id="predictionResults" style="display: none;">
+                                            <h6>Prediction Results</h6>
+                                            <div id="predictionResultsPlot"></div>
+                                            
+                                            <button class="btn btn-secondary mt-3" onclick="downloadPredictions()">
+                                                <i class="fas fa-download"></i> Download Predictions
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-light text-center text-lg-start mt-5">
+        <div class="text-center p-3">
+            © 2024 ElectroML - Istanbul University-Cerrahpaşa
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Tooltip JS -->
+    <script src="{{ url_for('static', filename='js/tooltips.js') }}"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

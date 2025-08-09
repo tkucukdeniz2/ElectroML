@@ -1,0 +1,201 @@
+/* ElectroML Tooltip Styles - Educational tooltips for chemists */
+
+.tooltip-icon {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 18px;
+    font-size: 12px;
+    margin-left: 5px;
+    cursor: help;
+    transition: all 0.3s ease;
+    font-weight: bold;
+}
+
+.tooltip-icon:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+/* Custom tooltip styling */
+.electroml-tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.electroml-tooltip .tooltiptext {
+    visibility: hidden;
+    width: 320px;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 12px 15px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -160px;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    transform: translateY(10px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Tooltip arrow */
+.electroml-tooltip .tooltiptext::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #2a5298 transparent transparent transparent;
+}
+
+/* Show tooltip on hover */
+.electroml-tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Tooltip headers */
+.tooltip-header {
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 5px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 5px;
+}
+
+/* Tooltip formula styling */
+.tooltip-formula {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 8px;
+    border-radius: 4px;
+    margin: 5px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+/* Tooltip list styling */
+.tooltip-list {
+    margin: 5px 0;
+    padding-left: 15px;
+}
+
+.tooltip-list li {
+    margin: 3px 0;
+    font-size: 12px;
+}
+
+/* Tooltip emphasis */
+.tooltip-emphasis {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* Tooltip example */
+.tooltip-example {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 5px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-size: 11px;
+    font-style: italic;
+}
+
+/* Responsive tooltips */
+@media (max-width: 768px) {
+    .electroml-tooltip .tooltiptext {
+        width: 250px;
+        margin-left: -125px;
+        font-size: 12px;
+    }
+}
+
+/* Tooltip positioning variants */
+.tooltip-right .tooltiptext {
+    bottom: auto;
+    left: 110%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 0;
+}
+
+.tooltip-right .tooltiptext::after {
+    top: 50%;
+    left: -5px;
+    margin-top: -5px;
+    border-color: transparent #2a5298 transparent transparent;
+}
+
+.tooltip-left .tooltiptext {
+    bottom: auto;
+    left: auto;
+    right: 110%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 0;
+}
+
+.tooltip-left .tooltiptext::after {
+    top: 50%;
+    right: -5px;
+    left: auto;
+    margin-top: -5px;
+    border-color: transparent transparent transparent #2a5298;
+}
+
+/* Feature tooltip special styling */
+.feature-tooltip {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.feature-tooltip::after {
+    border-color: #f5576c transparent transparent transparent;
+}
+
+/* Model tooltip special styling */
+.model-tooltip {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.model-tooltip::after {
+    border-color: #00f2fe transparent transparent transparent;
+}
+
+/* Metric tooltip special styling */
+.metric-tooltip {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.metric-tooltip::after {
+    border-color: #38f9d7 transparent transparent transparent;
+}
+
+/* Animation for important tooltips */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
+    }
+}
+
+.tooltip-icon.important {
+    animation: pulse 2s infinite;
+}

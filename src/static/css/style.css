@@ -1,0 +1,238 @@
+/* ElectroML Custom Styles */
+
+:root {
+    --primary-color: #2196F3;
+    --secondary-color: #757575;
+    --success-color: #4CAF50;
+    --info-color: #00BCD4;
+    --warning-color: #FF9800;
+    --danger-color: #F44336;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+}
+
+/* Workflow Steps */
+.workflow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.step {
+    padding: 10px;
+    background: #f8f9fa;
+    border-left: 3px solid #dee2e6;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.step.active {
+    background: #e3f2fd;
+    border-left-color: var(--primary-color);
+    font-weight: bold;
+}
+
+.step.completed {
+    background: #e8f5e9;
+    border-left-color: var(--success-color);
+}
+
+.step i {
+    margin-right: 8px;
+}
+
+/* Drop Zone */
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #fafafa;
+}
+
+.drop-zone:hover {
+    border-color: var(--primary-color);
+    background: #e3f2fd;
+}
+
+.drop-zone.dragover {
+    border-color: var(--success-color);
+    background: #e8f5e9;
+}
+
+/* Info Box */
+.info-box {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.info-box label {
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+/* Data Table */
+#dataTable {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#dataTable th {
+    background: var(--primary-color);
+    color: white;
+    position: sticky;
+    top: 0;
+}
+
+/* Model Selection */
+.model-selection {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.model-selection .form-check {
+    margin-bottom: 10px;
+}
+
+/* Results Table */
+#resultsTable {
+    margin-top: 20px;
+}
+
+#resultsTable th {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Progress Bar */
+.progress {
+    height: 25px;
+}
+
+.progress-bar {
+    background: var(--primary-color);
+}
+
+/* Cards */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: box-shadow 0.3s;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 5px;
+    padding: 8px 20px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Tabs */
+.nav-tabs .nav-link {
+    color: var(--secondary-color);
+    border: none;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #e0e0e0;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+    background: none;
+}
+
+.nav-tabs .nav-link.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Alerts */
+.alert {
+    border: none;
+    border-radius: 5px;
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+    background: white !important;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Plotly Plots */
+.plot-container {
+    width: 100%;
+    height: 400px;
+    margin: 20px 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .workflow-steps {
+        flex-direction: row;
+        overflow-x: auto;
+    }
+    
+    .step {
+        min-width: 150px;
+    }
+}
+
+/* Loading Animation */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0,0,0,.1);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

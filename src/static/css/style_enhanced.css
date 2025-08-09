@@ -1,0 +1,376 @@
+/* ElectroML Enhanced Styles */
+
+:root {
+    --primary: #0d6efd;
+    --secondary: #6c757d;
+    --success: #198754;
+    --info: #0dcaf0;
+    --warning: #ffc107;
+    --danger: #dc3545;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Workflow Steps */
+.workflow-steps {
+    padding: 0;
+}
+
+.workflow-steps .step {
+    padding: 8px 12px;
+    margin-bottom: 5px;
+    border-left: 3px solid #dee2e6;
+    cursor: not-allowed;
+    transition: all 0.3s;
+    opacity: 0.6;
+    position: relative;
+}
+
+.workflow-steps .step.active,
+.workflow-steps .step.completed {
+    cursor: pointer;
+    opacity: 1;
+}
+
+/* Add hand cursor icon for clickable steps */
+.workflow-steps .step.active::after,
+.workflow-steps .step.completed::after {
+    content: '👆';
+    position: absolute;
+    right: 10px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.workflow-steps .step.active:hover::after,
+.workflow-steps .step.completed:hover::after {
+    opacity: 0.7;
+}
+
+.workflow-steps .step.active {
+    border-left-color: var(--primary);
+    background-color: #e7f3ff;
+    font-weight: bold;
+}
+
+.workflow-steps .step.completed {
+    border-left-color: var(--success);
+    background-color: #e7f5f0;
+}
+
+.workflow-steps .step.completed:hover,
+.workflow-steps .step.active:hover {
+    transform: translateX(5px);
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+}
+
+.workflow-steps .step:hover {
+    background-color: #f1f3f5;
+}
+
+/* Drop Zone */
+.drop-zone {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background-color: #fff;
+}
+
+.drop-zone:hover {
+    border-color: var(--primary);
+    background-color: #f0f8ff;
+}
+
+.drop-zone.dragover {
+    border-color: var(--success);
+    background-color: #e7f5f0;
+}
+
+/* Card Enhancements */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Navigation Tabs */
+.nav-tabs .nav-link {
+    color: #495057;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 10px 20px;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #dee2e6;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary);
+    border-color: var(--primary);
+    background-color: transparent;
+}
+
+.nav-tabs .nav-link:disabled {
+    color: #adb5bd;
+    cursor: not-allowed;
+}
+
+/* Forms */
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 5px;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Model Selection */
+.model-selection {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+    min-width: 200px;
+}
+
+.model-selection .form-check {
+    padding: 8px 5px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+}
+
+.model-selection .form-check:hover {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+/* Ensure checkbox visibility with native appearance fallback */
+.model-selection .form-check-input,
+.model-selection input[type="checkbox"] {
+    -webkit-appearance: checkbox !important;
+    -moz-appearance: checkbox !important;
+    appearance: checkbox !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    margin-right: 12px !important;
+    margin-top: 0 !important;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-block !important;
+    position: relative !important;
+    vertical-align: middle;
+    border: 2px solid #0d6efd !important;
+    border-radius: 4px;
+    background-color: white !important;
+}
+
+/* Ensure checked state is visible */
+.model-selection .form-check-input:checked {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+.model-selection .form-check-label {
+    cursor: pointer;
+    margin-bottom: 0;
+    user-select: none;
+    width: 100%;
+    padding-left: 5px;
+}
+
+/* Progress Indicators */
+.progress {
+    height: 25px;
+    border-radius: 5px;
+}
+
+.progress-bar {
+    font-size: 14px;
+    line-height: 25px;
+}
+
+/* Results Table */
+.table {
+    background-color: #fff;
+}
+
+.table thead th {
+    border-bottom: 2px solid var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 5px;
+    padding: 8px 20px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Plot Container */
+#plotContainer {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Modal Enhancements */
+.modal-header {
+    background-color: var(--primary);
+    color: white;
+}
+
+.modal-header .btn-close {
+    filter: brightness(0) invert(1);
+}
+
+/* Alert Enhancements */
+.alert {
+    border: none;
+    border-left: 4px solid;
+    border-radius: 5px;
+}
+
+.alert-success {
+    border-left-color: var(--success);
+    background-color: #d1e7dd;
+}
+
+.alert-danger {
+    border-left-color: var(--danger);
+    background-color: #f8d7da;
+}
+
+.alert-info {
+    border-left-color: var(--info);
+    background-color: #cff4fc;
+}
+
+/* Session Info */
+#session-info {
+    font-size: 12px;
+    background-color: #f8f9fa;
+}
+
+#session-info span {
+    font-weight: bold;
+    color: var(--primary);
+}
+
+/* Hyperparameter Config */
+.hyperparam-group {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+
+.hyperparam-group h6 {
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+/* Tooltips */
+[data-bs-toggle="tooltip"] {
+    cursor: help;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    color: white;
+    font-size: 48px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .workflow-steps {
+        display: flex;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .workflow-steps .step {
+        display: inline-block;
+        margin-right: 10px;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Print Styles */
+@media print {
+    .btn, .nav-tabs, .workflow-steps, #session-info {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #dee2e6;
+    }
+}
