@@ -351,9 +351,9 @@ function displayTrainingResults(results) {
         if (result.metrics) {
             const row = tbody.insertRow();
             row.insertCell(0).textContent = modelName;
-            row.insertCell(1).textContent = result.metrics.r2.toFixed(4);
-            row.insertCell(2).textContent = result.metrics.rmse.toFixed(4);
-            row.insertCell(3).textContent = result.metrics.mae.toFixed(4);
+            row.insertCell(1).textContent = result.metrics?.r2?.toFixed(4) || 'N/A';
+            row.insertCell(2).textContent = result.metrics?.rmse?.toFixed(4) || 'N/A';
+            row.insertCell(3).textContent = result.metrics?.mae?.toFixed(4) || 'N/A';
         }
     }
 }

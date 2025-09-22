@@ -689,13 +689,30 @@ function makePredictions() {
         }
         
         document.getElementById('predictionResults').style.display = 'block';
-        document.getElementById('predictionStats').innerHTML = `
-            <p>Predictions: ${data.n_samples} samples</p>
-            ${data.metrics ? `
-                <p>R²: ${data.metrics.r2.toFixed(4)}</p>
-                <p>RMSE: ${data.metrics.rmse.toFixed(4)}</p>
-            ` : ''}
-        `;
+        
+        // Build metrics display with null checks
+        let metricsHTML = `<p>Predictions: ${data.n_samples} samples</p>`;
+        
+        if (data.metrics) {
+            // Add R² if available
+            if (data.metrics.r2 !== null && data.metrics.r2 !== undefined) {
+                metricsHTML += `<p>R²: ${data.metrics.r2.toFixed(4)}</p>`;
+            } else if (data.metrics.r2_note) {
+                metricsHTML += `<p>R²: N/A (${data.metrics.r2_note})</p>`;
+            }
+            
+            // Add RMSE if available
+            if (data.metrics.rmse !== null && data.metrics.rmse !== undefined) {
+                metricsHTML += `<p>RMSE: ${data.metrics.rmse.toFixed(4)}</p>`;
+            }
+            
+            // Add MAE if available
+            if (data.metrics.mae !== null && data.metrics.mae !== undefined) {
+                metricsHTML += `<p>MAE: ${data.metrics.mae.toFixed(4)}</p>`;
+            }
+        }
+        
+        document.getElementById('predictionStats').innerHTML = metricsHTML;
         
         updateWorkflowStep(5, 'completed');
         showAlert('Predictions completed!', 'success');

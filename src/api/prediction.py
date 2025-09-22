@@ -124,11 +124,23 @@ def make_predictions():
         metrics = None
         if y_test is not None:
             from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+            
+            # Check if we have enough samples for R² calculation
+            n_samples = len(y_test)
+            
             metrics = {
-                'r2': r2_score(y_test, predictions),
                 'rmse': np.sqrt(mean_squared_error(y_test, predictions)),
-                'mae': mean_absolute_error(y_test, predictions)
+                'mae': mean_absolute_error(y_test, predictions),
+                'n_samples': n_samples
             }
+            
+            # R² score requires at least 2 samples
+            if n_samples >= 2:
+                metrics['r2'] = r2_score(y_test, predictions)
+            else:
+                metrics['r2'] = None
+                metrics['r2_note'] = 'R² requires at least 2 samples'
+                logger.info(f"Single sample prediction - R² calculation skipped")
         
         # Prepare response
         response = {
