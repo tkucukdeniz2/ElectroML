@@ -1,6 +1,6 @@
 # ElectroML
 
-An Open-Source Web Application for Machine Learning-Based Analyte Concentration Prediction in Electrochemical Sensing
+An Open-Source Web Platform for Machine Learning-Based Analyte Concentration Prediction in Electrochemical Sensing
 
 ElectroML is a sophisticated web-based platform designed to automate the processing, analysis, and prediction of analyte concentrations from cyclic voltammetry (CV) and differential pulse voltammetry (DPV) data. The application integrates state-of-the-art machine learning models with an intuitive web interface, providing a professional platform for electrochemical data analysis that works with any modern web browser.
 
@@ -151,7 +151,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 src.app:app
 ## 📝 Publication
 
 This software is associated with the article:
-**"ElectroML: An Open-Source Software for Machine Learning-Based Analyte Concentration Prediction in Electrochemical Sensing"** 
+**"ElectroML: An Open-Source Web Platform for Machine Learning-Based Analyte Concentration Prediction in Electrochemical Sensing"** 
 Submitted to SoftwareX journal.
 
 ## 📄 License
@@ -177,30 +177,31 @@ For questions, bug reports, or feature requests:
 
 - **Canan Hazal Akarsu** - *Lead Developer* - hazalakarsu@iuc.edu.tr
 - **Tarık Küçükdeniz** - *Co-Developer* - tkdeniz@iuc.edu.tr
-
-Istanbul University-Cerrahpaşa, Faculty of Engineering
+- **Elif Tüzün** 
+- **Selcan Karakuş**
 
 ## 🙏 Acknowledgments
 
+- Corporate Data Management Office, Istanbul University-Cerrahpaşa
 - Department of Industrial Engineering, Istanbul University-Cerrahpaşa
 - Department of Chemistry, Istanbul University-Cerrahpaşa
-- Health Biotechnology Joint Research and Application Center of Excellence
+- Health Biotechnology Joint Research and Application Center of Excellence, Istanbul University-Cerrahpaşa
 
 ## 📚 Citation
 
 If you use ElectroML in your research, please cite:
 
 ```bibtex
-@article{akarsu2024electroml,
-  title={ElectroML: An Open-Source Software for Machine Learning-Based Analyte Concentration Prediction in Electrochemical Sensing},
+@article{akarsu2025electroml,
+  title={ElectroML: An Open-Source Web Platform for Machine Learning-Based Analyte Concentration Prediction in Electrochemical Sensing},
   author={Akarsu, Canan Hazal and Küçükdeniz, Tarık and Tüzün, Elif and Karakuş, Selcan},
   journal={SoftwareX},
-  year={2024},
+  year={2025},
   publisher={Elsevier}
 }
 ```
 
-## 🚀 What's New in v2.0
+## 🚀 What's New in v2.1
 
 - **Web-Based Architecture:** No desktop GUI dependencies, works with Python 3.13+
 - **Modern Interface:** Responsive design with Bootstrap 5
