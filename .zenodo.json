@@ -1,0 +1,45 @@
+{
+  "title": "ElectroML: An Open-Source Web Platform for Machine Learning-Based Analyte Concentration Prediction in Electrochemical Sensing",
+  "description": "ElectroML is a web-based platform for automated preprocessing, feature extraction, machine learning model training, and concentration prediction from cyclic voltammetry (CV) and differential pulse voltammetry (DPV) data. The platform integrates 14 regression algorithms with Optuna-based hyperparameter optimization and provides cross-validated performance metrics through an interactive browser interface.",
+  "creators": [
+    {
+      "name": "Akarsu, Canan Hazal",
+      "affiliation": "Istanbul University-Cerrahpaşa, Corporate Data Management Office",
+      "orcid": ""
+    },
+    {
+      "name": "Küçükdeniz, Tarık",
+      "affiliation": "Istanbul University-Cerrahpaşa, Department of Industrial Engineering"
+    },
+    {
+      "name": "Tüzün, Elif",
+      "affiliation": "Istanbul University-Cerrahpaşa, Department of Chemistry"
+    },
+    {
+      "name": "Karakuş, Selcan",
+      "affiliation": "Istanbul University-Cerrahpaşa, Department of Chemistry & Health Biotechnology Joint Research Center"
+    }
+  ],
+  "keywords": [
+    "electrochemical sensing",
+    "cyclic voltammetry",
+    "differential pulse voltammetry",
+    "machine learning",
+    "analyte concentration prediction",
+    "web platform",
+    "cross-validation",
+    "feature extraction"
+  ],
+  "license": {
+    "id": "GPL-3.0"
+  },
+  "upload_type": "software",
+  "access_right": "open",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/tkucukdeniz2/ElectroML",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

@@ -13,9 +13,9 @@ ElectroML is a sophisticated web-based platform designed to automate the process
 - **Real-time Visualization:** Interactive plots using Plotly.js
 
 ### Machine Learning Models
-- **Multiple Algorithms:** Linear Regression, Ridge, Lasso, ElasticNet, SVM, Random Forest, Gradient Boosting, XGBoost, LightGBM
+- **Multiple Algorithms:** Linear Regression, Ridge, Lasso, ElasticNet, SVM, Random Forest, Extra Trees, Gradient Boosting, XGBoost, LightGBM, AdaBoost, MLP, Neural Network, Gaussian Process
 - **Hyperparameter Optimization:** Automated tuning using Optuna with Bayesian optimization
-- **Cross-Validation:** Leave-One-Out, K-Fold strategies with automatic selection for small datasets
+- **Cross-Validation:** Leave-One-Out, K-Fold, Stratified K-Fold, Time Series Split strategies with automatic selection for small datasets
 - **Model Comparison:** Side-by-side performance evaluation
 
 ### Web-Based Interface
@@ -54,7 +54,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-The application will automatically open in your default web browser at `http://localhost:5000`
+The application will automatically open in your default web browser at `http://localhost:5005`
 
 ## 📊 Usage
 
@@ -93,22 +93,33 @@ A sample dataset (`src/sensor_data.xlsx`) is provided demonstrating the required
 ```
 ElectroML/
 ├── src/
-│   ├── app.py                    # Flask application
-│   ├── templates/                # HTML templates
-│   │   └── index.html           # Main web interface
-│   ├── static/                   # Static assets
-│   │   ├── css/style.css        # Custom styles
-│   │   └── js/app.js            # Frontend JavaScript
-│   ├── core/                     # Core algorithms
-│   │   ├── feature_extraction.py # Feature engineering
-│   │   └── model_training.py     # Training pipeline
-│   ├── models/                   # ML models
-│   │   └── model_factory.py      # Model creation
-│   └── api/                      # API endpoints
-├── run.py                        # Application launcher
-├── requirements.txt              # Python dependencies
-├── LICENSE.txt                   # GNU GPL v3.0
-└── README.md                     # This file
+│   ├── app_refactored.py            # Flask application factory
+│   ├── templates/
+│   │   └── index.html               # Main web interface (Bootstrap 5)
+│   ├── static/
+│   │   ├── css/style.css            # Custom styles
+│   │   ├── css/tooltips.css         # Tooltip styles
+│   │   ├── js/app.js               # Frontend JavaScript
+│   │   └── js/tooltips.js          # Tooltip scripts
+│   ├── core/                        # Core algorithms
+│   │   ├── feature_extraction.py    # Feature engineering (47 features)
+│   │   └── model_training.py        # Training pipeline with Optuna
+│   ├── models/
+│   │   └── model_factory.py         # Model creation (14 algorithms)
+│   ├── api/                         # REST API blueprints
+│   │   ├── data_handler.py          # Data upload & sessions
+│   │   ├── preprocessing.py         # Signal processing
+│   │   ├── training.py              # Model training
+│   │   ├── prediction.py            # Predictions
+│   │   └── visualization.py         # Plot generation
+│   └── utils/
+│       ├── session_manager.py       # Multi-user sessions
+│       ├── validators.py            # Input validation
+│       └── json_helpers.py          # JSON serialization
+├── run.py                           # Application launcher
+├── requirements.txt                 # Python dependencies
+├── LICENSE.txt                      # GNU GPL v3.0
+└── README.md                        # This file
 ```
 
 ## 🔬 Scientific Applications
@@ -145,7 +156,7 @@ PORT=8080 python run.py
 For production deployment, use a WSGI server:
 ```bash
 pip install gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 src.app:app
+gunicorn -w 4 -b 0.0.0.0:5005 "src.app_refactored:create_app()"
 ```
 
 ## 📝 Publication

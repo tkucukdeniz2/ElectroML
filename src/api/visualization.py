@@ -327,32 +327,45 @@ def create_plot():
                 df = session.get('preprocessed_data', session.get('data'))
                 if df is not None and len(df) > 0:
                     # Create voltammogram data from the dataframe
-                    # Assuming first column is concentration, rest are measurements
+                    # First column is concentration, rest are current measurements
                     voltages = []
+                    unparsed_cols = []
                     for col in df.columns[1:]:
                         try:
                             voltages.append(float(col))
-                        except:
+                        except (ValueError, TypeError):
                             # Handle string format like 'V_neg1_000'
                             if isinstance(col, str) and col.startswith('V_'):
                                 voltage_str = col[2:].replace('neg', '-').replace('_', '.')
                                 try:
                                     voltages.append(float(voltage_str))
-                                except:
-                                    pass
-                    
-                    # If we couldn't parse voltages, create default range
+                                except (ValueError, TypeError):
+                                    unparsed_cols.append(col)
+                            else:
+                                unparsed_cols.append(col)
+
+                    if unparsed_cols:
+                        logger.warning(f"Could not parse {len(unparsed_cols)} column names as voltages: {unparsed_cols[:5]}")
+
+                    # If we couldn't parse voltages, create sequential index
                     if not voltages:
                         n_points = len(df.columns) - 1
-                        voltages = np.linspace(-1, 1, n_points).tolist()
-                    
-                    # Prepare data for voltammogram (show first few samples)
+                        voltages = list(range(n_points))
+                        logger.warning(f"No voltage values parsed from column names. Using sequential index (0 to {n_points-1}).")
+
+                    # Ensure voltage count matches data columns
+                    n_data_cols = len(df.columns) - 1
+                    if len(voltages) != n_data_cols:
+                        logger.warning(f"Voltage count ({len(voltages)}) != data columns ({n_data_cols}). Trimming to match.")
+                        voltages = voltages[:n_data_cols]
+
+                    # Prepare data for voltammogram
                     plot_data = []
                     n_samples_to_show = min(5, len(df))
                     for i in range(n_samples_to_show):
-                        current = df.iloc[i, 1:].values.tolist()
+                        current = df.iloc[i, 1:1+len(voltages)].values.tolist()
                         conc = df.iloc[i, 0]
-                        plot_data.append((voltages, current, f'Sample {i+1} ({conc:.2f} μM)'))
+                        plot_data.append((voltages, current, f'Sample {i+1} (Conc: {conc:.3f})'))
                 else:
                     return jsonify({'error': 'No data available for plotting'}), 400
             elif plot_type == 'scatter':

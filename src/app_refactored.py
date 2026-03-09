@@ -53,7 +53,7 @@ def create_app(config_name='development'):
     @app.route('/')
     def index():
         """Render main application page."""
-        return render_template('index_enhanced.html')
+        return render_template('index.html')
     
     logger.info(f"ElectroML application created with config: {config_name}")
     

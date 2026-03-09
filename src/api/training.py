@@ -6,9 +6,12 @@ import numpy as np
 import pandas as pd
 from flask import request, jsonify
 from sklearn.model_selection import (
-    KFold, StratifiedKFold, LeaveOneOut, TimeSeriesSplit, 
-    train_test_split, GridSearchCV, RandomizedSearchCV
+    KFold, LeaveOneOut,
+    GridSearchCV, RandomizedSearchCV,
+    cross_val_score, cross_val_predict
 )
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import logging
 
@@ -30,65 +33,48 @@ class EnhancedTrainer:
     def get_cv_splitter(cv_strategy: str, n_samples: int, **kwargs):
         """
         Get cross-validation splitter based on strategy.
-        
-        Args:
-            cv_strategy: Type of CV strategy
-            n_samples: Number of samples
-            **kwargs: Strategy-specific parameters
+
+        Supported strategies:
+            - 'loo': Leave-One-Out (recommended for small datasets <50 samples)
+            - 'kfold': K-Fold cross-validation (for larger datasets)
         """
         if cv_strategy == 'kfold':
             n_splits = min(kwargs.get('n_splits', 5), n_samples)
             shuffle = kwargs.get('shuffle', True)
             random_state = kwargs.get('random_state', 42)
             return KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
-        
-        elif cv_strategy == 'stratified_kfold':
-            n_splits = min(kwargs.get('n_splits', 5), n_samples)
-            shuffle = kwargs.get('shuffle', True)
-            random_state = kwargs.get('random_state', 42)
-            return StratifiedKFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
-        
-        elif cv_strategy == 'loo':
+
+        else:  # Default to LOO — gold standard for small electrochemical datasets
             return LeaveOneOut()
-        
-        elif cv_strategy == 'time_series':
-            n_splits = min(kwargs.get('n_splits', 5), n_samples - 1)
-            return TimeSeriesSplit(n_splits=n_splits)
-        
-        else:  # Default to KFold
-            return KFold(n_splits=min(5, n_samples), shuffle=True, random_state=42)
     
     @staticmethod
-    def train_with_hyperparameter_tuning(model_name: str, X, y, param_grid: dict, 
+    def train_with_hyperparameter_tuning(model_name: str, X, y, param_grid: dict,
                                         cv_splitter, search_type: str = 'grid'):
         """
-        Train model with hyperparameter tuning.
-        
-        Args:
-            model_name: Name of the model
-            X: Features
-            y: Target
-            param_grid: Parameter grid for search
-            cv_splitter: Cross-validation splitter
-            search_type: 'grid' or 'random'
+        Train model with hyperparameter tuning using Pipeline.
+        Scaling is performed within each CV fold to prevent data leakage.
         """
         base_model = ModelFactory.create_model(model_name)
-        
+        pipe = Pipeline([('scaler', StandardScaler()), ('model', base_model)])
+
+        # Prefix param_grid keys with 'model__' for Pipeline
+        pipe_param_grid = {f'model__{k}': v for k, v in param_grid.items()}
+
         if search_type == 'random':
-            n_iter = min(20, np.prod([len(v) if isinstance(v, list) else 10 
+            n_iter = min(20, np.prod([len(v) if isinstance(v, list) else 10
                                      for v in param_grid.values()]))
             search = RandomizedSearchCV(
-                base_model, param_grid, n_iter=n_iter, 
+                pipe, pipe_param_grid, n_iter=n_iter,
                 cv=cv_splitter, scoring='r2', n_jobs=-1
             )
         else:
             search = GridSearchCV(
-                base_model, param_grid, 
+                pipe, pipe_param_grid,
                 cv=cv_splitter, scoring='r2', n_jobs=-1
             )
-        
+
         search.fit(X, y)
-        
+
         return {
             'best_model': search.best_estimator_,
             'best_params': search.best_params_,
@@ -199,6 +185,25 @@ def extract_features():
         # Log voltage parsing info
         logger.info(f"Parsed {len(voltages)} voltage points from {voltages[0]:.3f}V to {voltages[-1]:.3f}V")
         
+        # Build Plotly figure for feature importance visualization
+        top_feat = feature_importance.head(15)
+        importance_plot = {
+            'data': [{
+                'type': 'bar',
+                'x': [float(v) for v in top_feat['importance'].values],
+                'y': top_feat['feature'].values.tolist(),
+                'orientation': 'h',
+                'marker': {'color': '#4e73df'}
+            }],
+            'layout': {
+                'title': 'Feature Importance (Random Forest)',
+                'xaxis': {'title': 'Importance'},
+                'yaxis': {'autorange': 'reversed'},
+                'height': 400,
+                'margin': {'l': 180, 'r': 30, 't': 40, 'b': 40}
+            }
+        }
+
         response = {
             'session_id': session_id,
             'n_features': len(X.columns),
@@ -206,6 +211,7 @@ def extract_features():
             'feature_names': X.columns.tolist(),
             'feature_importance': feature_importance.head(20).to_dict('records'),
             'top_features': feature_importance.head(10).to_dict('records'),  # For tooltips
+            'importance_plot': importance_plot,
             'feature_statistics': {
                 'mean': X.mean().to_dict(),
                 'std': X.std().to_dict()
@@ -250,24 +256,14 @@ def train_models():
         cv_strategy = data.get('cv_strategy', 'loo')  # LOO is default for electrochemical data
         hyperparameter_tuning = data.get('hyperparameter_tuning', False)
         custom_params = data.get('custom_params', {})
-        
-        # Handle train/test split if requested
-        if cv_strategy == 'train_test_split':
-            test_size = data.get('test_size', 0.2)
-            random_state = data.get('random_state', 42)
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=test_size, random_state=random_state
-            )
-        else:
-            X_train, y_train = X, y
-            X_test, y_test = None, None
-        
+
+        X_train, y_train = X, y
+
         # Get CV splitter
         trainer = EnhancedTrainer()
-        # Pass CV parameters without duplicating cv_strategy
-        cv_params = {k: v for k, v in data.items() 
-                    if k not in ['cv_strategy', 'session_id', 'models', 'hyperparameter_tuning', 
-                                 'custom_params', 'test_size']}
+        cv_params = {k: v for k, v in data.items()
+                    if k not in ['cv_strategy', 'session_id', 'models', 'hyperparameter_tuning',
+                                 'custom_params']}
         cv_splitter = trainer.get_cv_splitter(cv_strategy, len(X_train), **cv_params)
         
         # Store training configuration
@@ -295,58 +291,41 @@ def train_models():
                 else:
                     # Train with default or custom parameters
                     model_params = custom_params.get(model_name, {})
-                    
-                    # For neural networks, ensure data is scaled
-                    if model_name in ['mlp', 'neural_network']:
-                        from sklearn.preprocessing import StandardScaler
-                        from sklearn.pipeline import Pipeline
-                        
-                        # Create pipeline with scaling
-                        model = Pipeline([
-                            ('scaler', StandardScaler()),
-                            ('model', ModelFactory.create_model(model_name, model_params))
-                        ])
-                    else:
-                        model = ModelFactory.create_model(model_name, model_params)
-                    
+
+                    # Wrap ALL models in a Pipeline with StandardScaler
+                    # This ensures scaling is performed within each CV fold,
+                    # preventing information leakage between folds
+                    model_base = ModelFactory.create_model(model_name, model_params)
+                    model = Pipeline([
+                        ('scaler', StandardScaler()),
+                        ('model', model_base)
+                    ])
+
                     # Perform cross-validation
-                    from sklearn.model_selection import cross_val_score
                     cv_scores = cross_val_score(model, X_train, y_train, cv=cv_splitter, scoring='r2')
                     cv_score = cv_scores.mean()
                     best_params = model_params
-                    
-                    # Train final model
+
+                    # Train final model on all data
                     model.fit(X_train, y_train)
-                
-                # Calculate metrics
-                if X_test is not None:
-                    # Use test set
-                    y_pred = model.predict(X_test)
-                    metrics = {
-                        'r2': r2_score(y_test, y_pred),
-                        'rmse': np.sqrt(mean_squared_error(y_test, y_pred)),
-                        'mae': mean_absolute_error(y_test, y_pred)
-                    }
-                    test_predictions = y_pred
-                else:
-                    # Use training set
-                    y_pred = model.predict(X_train)
-                    metrics = {
-                        'r2': r2_score(y_train, y_pred),
-                        'rmse': np.sqrt(mean_squared_error(y_train, y_pred)),
-                        'mae': mean_absolute_error(y_train, y_pred)
-                    }
-                    test_predictions = None
-                
-                # Store results with actual and predicted values
+
+                # Calculate metrics using out-of-fold CV predictions (unbiased)
+                y_pred_cv = cross_val_predict(model, X_train, y_train, cv=cv_splitter)
+                metrics = {
+                    'r2': r2_score(y_train, y_pred_cv),
+                    'rmse': np.sqrt(mean_squared_error(y_train, y_pred_cv)),
+                    'mae': mean_absolute_error(y_train, y_pred_cv)
+                }
+
+                # Store results with actual and CV-predicted values
                 results[model_name] = {
                     'metrics': metrics,
                     'cv_score': float(cv_score),
                     'best_params': best_params,
                     'training_size': len(X_train),
-                    'test_size': len(X_test) if X_test is not None else 0,
-                    'actual_values': (y_test.tolist() if X_test is not None else y_train.tolist()),
-                    'predicted_values': y_pred.tolist()
+                    'test_size': 0,
+                    'actual_values': y_train.tolist(),
+                    'predicted_values': y_pred_cv.tolist()
                 }
                 
                 # Store model
@@ -355,8 +334,7 @@ def train_models():
                 session['models'][model_name] = {
                     'model': model,
                     'metrics': metrics,
-                    'predictions': y_pred,
-                    'test_predictions': test_predictions
+                    'predictions': y_pred_cv
                 }
                 
             except Exception as e:
@@ -382,10 +360,7 @@ def train_models():
         
         cv_descriptions = {
             'kfold': 'K-Fold: Splits data into k parts, trains on k-1, validates on 1',
-            'loo': 'Leave-One-Out: Each sample tested individually - gold standard for small datasets',
-            'stratified_kfold': 'Stratified K-Fold: Maintains concentration distribution in each fold',
-            'time_series': 'Time Series Split: Respects temporal order for degradation studies',
-            'train_test_split': 'Simple split: Fast but less robust validation'
+            'loo': 'Leave-One-Out: Each sample tested individually - gold standard for small datasets'
         }
         
         # Find best model
