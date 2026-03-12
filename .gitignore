@@ -26,10 +26,6 @@ src/uploads/*.xls
 src/uploads/*.csv
 !src/uploads/.gitkeep
 
-# Data files (sample data kept in src/)
-*.xlsx
-!src/sensor_data.xlsx
-
 # Test artifacts
 test_*.csv
 test_*.xlsx
