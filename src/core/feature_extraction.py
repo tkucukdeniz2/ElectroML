@@ -17,19 +17,25 @@ logger = logging.getLogger(__name__)
 class FeatureExtractor:
     """Advanced feature extraction for voltammetric data."""
     
-    def __init__(self, smoothing: bool = True, window_length: int = 11, polyorder: int = 3):
+    def __init__(self, smoothing: bool = True, window_length: int = 11, polyorder: int = 3,
+                 categories: Optional[Dict[str, bool]] = None):
         """
         Initialize feature extractor.
-        
+
         Args:
             smoothing: Apply Savitzky-Golay filter for noise reduction
             window_length: Window length for smoothing filter
             polyorder: Polynomial order for smoothing filter
+            categories: Dict of category toggles, e.g. {'statistical': True, 'peak': False, ...}
         """
         self.smoothing = smoothing
         self.window_length = window_length
         self.polyorder = polyorder
         self.feature_names = []
+        self.categories = categories or {
+            'statistical': True, 'peak': True, 'derivative': True,
+            'integral': True, 'shape': True, 'frequency': True
+        }
         
     def extract_features(self, data: pd.DataFrame, voltages: np.ndarray) -> pd.DataFrame:
         """
@@ -65,25 +71,25 @@ class FeatureExtractor:
     def _extract_single_sample_features(self, current: np.ndarray, voltages: np.ndarray) -> Dict:
         """Extract features from a single voltammetric scan."""
         features = {}
-        
-        # Basic statistical features
-        features.update(self._extract_statistical_features(current))
-        
-        # Peak-related features
-        features.update(self._extract_peak_features(current, voltages))
-        
-        # Derivative features
-        features.update(self._extract_derivative_features(current, voltages))
-        
-        # Integral features
-        features.update(self._extract_integral_features(current, voltages))
-        
-        # Symmetry and shape features
-        features.update(self._extract_shape_features(current))
-        
-        # Frequency domain features (optional, for AC voltammetry)
-        features.update(self._extract_frequency_features(current))
-        
+
+        if self.categories.get('statistical', True):
+            features.update(self._extract_statistical_features(current))
+
+        if self.categories.get('peak', True):
+            features.update(self._extract_peak_features(current, voltages))
+
+        if self.categories.get('derivative', True):
+            features.update(self._extract_derivative_features(current, voltages))
+
+        if self.categories.get('integral', True):
+            features.update(self._extract_integral_features(current, voltages))
+
+        if self.categories.get('shape', True):
+            features.update(self._extract_shape_features(current))
+
+        if self.categories.get('frequency', True):
+            features.update(self._extract_frequency_features(current))
+
         return features
     
     def _extract_statistical_features(self, current: np.ndarray) -> Dict:

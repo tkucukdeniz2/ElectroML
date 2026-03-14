@@ -106,8 +106,10 @@ def extract_features():
             'polyorder': data.get('polyorder', 3),
             'extract_statistical': data.get('extract_statistical', True),
             'extract_peak': data.get('extract_peak', True),
+            'extract_derivative': data.get('extract_derivative', True),
+            'extract_integral': data.get('extract_integral', True),
+            'extract_shape': data.get('extract_shape', True),
             'extract_frequency': data.get('extract_frequency', True),
-            'extract_derivative': data.get('extract_derivative', True)
         }
         
         # Extract voltages from column names
@@ -139,11 +141,19 @@ def extract_features():
         else:
             voltages = np.array(voltages)
         
-        # Initialize feature extractor
+        # Initialize feature extractor with category toggles
         extractor = FeatureExtractor(
             smoothing=feature_config['smoothing'],
             window_length=feature_config['window_length'],
-            polyorder=feature_config['polyorder']
+            polyorder=feature_config['polyorder'],
+            categories={
+                'statistical': feature_config['extract_statistical'],
+                'peak': feature_config['extract_peak'],
+                'derivative': feature_config['extract_derivative'],
+                'integral': feature_config['extract_integral'],
+                'shape': feature_config['extract_shape'],
+                'frequency': feature_config['extract_frequency'],
+            }
         )
         
         # Extract features

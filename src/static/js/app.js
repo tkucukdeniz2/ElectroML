@@ -425,8 +425,10 @@ function extractFeatures(callback) {
         polyorder: parseInt(document.getElementById('polyOrder')?.value) || 3,
         extract_statistical: document.getElementById('extractStatistical')?.checked ?? true,
         extract_peak: document.getElementById('extractPeak')?.checked ?? true,
-        extract_frequency: document.getElementById('extractFrequency')?.checked ?? false,
-        extract_derivative: document.getElementById('extractDerivative')?.checked ?? false
+        extract_derivative: document.getElementById('extractDerivative')?.checked ?? true,
+        extract_integral: document.getElementById('extractIntegral')?.checked ?? true,
+        extract_shape: document.getElementById('extractShape')?.checked ?? true,
+        extract_frequency: document.getElementById('extractFrequency')?.checked ?? true
     };
     
     showLoading('Extracting features from voltammetric data...');

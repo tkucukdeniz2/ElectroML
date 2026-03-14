@@ -422,7 +422,7 @@
                                             </label>
                                         </div>
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="extractFrequency">
+                                            <input class="form-check-input" type="checkbox" id="extractFrequency" checked>
                                             <label class="form-check-label" for="extractFrequency">
                                                 Frequency Features
                                                 <span class="electroml-tooltip">
@@ -434,7 +434,7 @@
                                             </label>
                                         </div>
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="extractDerivative">
+                                            <input class="form-check-input" type="checkbox" id="extractDerivative" checked>
                                             <label class="form-check-label" for="extractDerivative">
                                                 Derivative Features
                                                 <span class="electroml-tooltip">
@@ -445,7 +445,31 @@
                                                 </span>
                                             </label>
                                         </div>
-                                        
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="extractIntegral" checked>
+                                            <label class="form-check-label" for="extractIntegral">
+                                                Integral Features
+                                                <span class="electroml-tooltip">
+                                                    <span class="tooltip-icon">?</span>
+                                                    <span class="tooltiptext">
+                                                        <div>Total/positive/negative charge, charge ratio, net charge (Simpson's rule)</div>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="extractShape" checked>
+                                            <label class="form-check-label" for="extractShape">
+                                                Shape Features
+                                                <span class="electroml-tooltip">
+                                                    <span class="tooltip-icon">?</span>
+                                                    <span class="tooltiptext">
+                                                        <div>Symmetry, form factor, crest factor, initial/final/midpoint current</div>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        </div>
+
                                         <h6 class="mt-3">Smoothing Options</h6>
                                         <small class="text-muted d-block mb-2">Savitzky-Golay filter reduces noise while preserving peak shape and width.</small>
                                         <div class="form-check">
